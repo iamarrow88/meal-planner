@@ -1,0 +1,82 @@
+body {
+    font-family: Inter, Arial, sans-serif;
+    margin: 0;
+    background: #f5f6f8;
+    color: #111;
+}
+.app {
+    padding: 16px;
+}
+.topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+}
+.grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+.panel {
+    background: #fff;
+    border-radius: 16px;
+    padding: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+}
+.cards {
+    display: grid;
+    gap: 12px;
+}
+.meal-card, .card, .slot {
+    border: 1px solid #e6e6e6;
+    border-radius: 12px;
+    padding: 12px;
+}
+.tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.tag {
+    background: #eef2ff;
+    padding: 4px 8px;
+    border-radius: 999px;
+    font-size: 12px;
+}
+.row, .actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+input, textarea, select, button {
+    width: 100%;
+    margin: 6px 0;
+    padding: 10px;
+    border-radius: 10px;
+    border: 1px solid #d6d6d6;
+    box-sizing: border-box;
+}
+button {
+    cursor: pointer;
+    background: #111;
+    color: #fff;
+}
+.plan-grid {
+    display: grid;
+    gap: 12px;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    border-bottom: 1px solid #eee;
+    text-align: left;
+    padding: 8px;
+}
+@media (max-width: 900px) {
+    .grid {
+        grid-template-columns: 1fr;
+    }
+}
