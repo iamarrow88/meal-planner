@@ -8,10 +8,7 @@ export default defineConfig({
   plugins: [
       vue(),
     vueDevTools(),
-    createHtmlPlugin({}),
     createHtmlPlugin({})
   ],
-  /*base: {
-    base: '/meal-planner/',
-  }*/
+  base: '/meal-planner/',
 })
