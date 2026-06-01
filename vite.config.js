@@ -11,7 +11,7 @@ export default defineConfig({
     createHtmlPlugin({}),
     createHtmlPlugin({})
   ],
-  base: {
+  /*base: {
     base: '/meal-planner/',
-  }
+  }*/
 })
