@@ -93,6 +93,21 @@ tags:
 
 Списки специй и исключений — в `src/lib/shopping.ts`, правила отделов — в `src/lib/categories.ts`.
 
+## Публикация (GitHub Pages)
+
+Каждый пуш в ветку `dev` собирает сайт и публикует его на GitHub Pages
+([.github/workflows/deploy.yml](.github/workflows/deploy.yml)). Настройка один раз:
+
+1. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+2. **Settings → Environments → github-pages → Deployment branches and tags:** добавить `dev`
+   (по умолчанию публиковать можно только из основной ветки).
+3. **Settings → Secrets and variables → Actions → New repository secret:** `VITE_SUPABASE_URL` и
+   `VITE_SUPABASE_ANON_KEY` — те же значения, что в `.env.local`.
+4. В Supabase: **Authentication → URL Configuration → Site URL** — адрес сайта, чтобы ссылка из письма
+   о подтверждении почты вела на сайт, а не на localhost.
+
+Ход сборки — на вкладке **Actions**; там же **Run workflow** пересобирает сайт без нового пуша.
+
 ## Синхронизация между устройствами (Supabase)
 
 Данные всегда хранятся на устройстве (приложение работает и без сети), а при входе в аккаунт

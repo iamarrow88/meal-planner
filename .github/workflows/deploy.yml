@@ -1,0 +1,52 @@
+# Сборка и публикация сайта на GitHub Pages после каждого пуша в ветку dev.
+# Настройка один раз: Settings → Pages → Source: GitHub Actions;
+# Settings → Secrets and variables → Actions: VITE_SUPABASE_URL и VITE_SUPABASE_ANON_KEY.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [dev]
+  workflow_dispatch: # кнопка «Run workflow» на вкладке Actions — пересобрать без нового пуша
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# новый пуш отменяет ещё не законченный деплой, чтобы на сайте всегда была последняя версия
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - run: npm run build
+        env:
+          # без них приложение работает, но вход и синхронизация будут выключены
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
