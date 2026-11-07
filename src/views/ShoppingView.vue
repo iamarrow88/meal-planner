@@ -86,7 +86,7 @@ async function copy() {
                   <template v-if="i">, </template>
                   <RouterLink
                     v-if="d.recipe"
-                    :to="{ name: 'recipe', params: { id: d.recipe }, query: { from: 'shopping' } }"
+                    :to="{ name: 'recipe', params: { id: d.recipe } }"
                     class="text-accent underline underline-offset-2"
                     @click.stop
                     >{{ d.title }}</RouterLink

@@ -6,10 +6,12 @@ import { useSyncStore } from './stores/sync';
 const sync = useSyncStore();
 const route = useRoute();
 
-// рецепт, открытый из списка покупок, оставляет подсвеченной вкладку «Покупки»
-const activeTab = computed(() =>
-  route.query.from === 'shopping' ? '/shopping' : tabs.find((t) => route.path.startsWith(t.to))?.to,
-);
+// рецепт, открытый из меню, сета или покупок, оставляет подсвеченной вкладку, откуда пришли
+const activeTab = computed(() => {
+  const back = window.history.state?.back;
+  const path = route.name === 'recipe' && typeof back === 'string' ? back : route.path;
+  return tabs.find((t) => path.startsWith(t.to))?.to;
+});
 
 const tabs = [
   { to: '/menu', label: 'Меню', icon: '📅' },

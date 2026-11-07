@@ -4,18 +4,28 @@ import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { MEAL_LABELS } from '@/lib/types';
 import { useRecipesStore } from '@/stores/recipes';
+import { useSetsStore } from '@/stores/sets';
 
 const props = defineProps<{ id: string }>();
 const store = useRecipesStore();
+const sets = useSetsStore();
 const route = useRoute();
 const router = useRouter();
-const fromShopping = computed(() => route.query.from === 'shopping');
 
-// «назад» возвращает на то же место списка; если рецепт открыт по сохранённой ссылке — просто в покупки
-function back() {
-  if (window.history.state?.back) router.back();
-  else router.push('/shopping');
-}
+// откуда пришли внутри приложения; если рецепт открыт по прямой ссылке, предыдущей страницы нет
+const previous = computed(() => {
+  void route.fullPath; // пересчитывать при каждом переходе
+  const back = window.history.state?.back;
+  return typeof back === 'string' ? router.resolve(back) : null;
+});
+
+const backLabel = computed(() => {
+  const to = previous.value;
+  if (!to) return '';
+  if (to.name === 'set') return sets.byId.get(String(to.params.id))?.name ?? 'Сет';
+  const labels: Record<string, string> = { shopping: 'Список покупок', menu: 'Меню', recipes: 'Все рецепты' };
+  return labels[String(to.name)] ?? 'Назад';
+});
 
 const recipe = computed(() => store.byId.get(props.id));
 const html = computed(() => (recipe.value ? (marked.parse(recipe.value.body) as string) : ''));
@@ -23,7 +33,8 @@ const html = computed(() => (recipe.value ? (marked.parse(recipe.value.body) as 
 
 <template>
   <section class="flex flex-col gap-3">
-    <button v-if="fromShopping" class="link self-start" @click="back">‹ Список покупок</button>
+    <!-- «назад» по истории: страница откроется там же, где её пролистали, и с тем же выбором -->
+    <button v-if="previous" class="link self-start text-left" @click="router.back()">‹ {{ backLabel }}</button>
     <RouterLink v-else to="/recipes" class="link">‹ Все рецепты</RouterLink>
     <p v-if="!recipe" class="py-6 text-center text-muted">Рецепт не найден.</p>
     <article v-else class="card">
