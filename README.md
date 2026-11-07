@@ -101,7 +101,7 @@ tags:
 
 1. Зарегистрируйтесь на [supabase.com](https://supabase.com) и создайте проект (бесплатный тариф подходит).
 2. Откройте **SQL Editor → New query**, вставьте содержимое [supabase/schema.sql](supabase/schema.sql) и нажмите **Run**.
-3. В **Project Settings → API** скопируйте *Project URL* и ключ *anon public*.
+3. В **Project Settings → API** скопируйте *Project URL* (вида `https://xxxx.supabase.co`, без `/rest/v1/`) и ключ *anon public*.
 4. Скопируйте `.env.example` в `.env.local` и вставьте туда эти значения. Перезапустите `npm run dev`.
 5. В приложении: вкладка **Данные → Зарегистрироваться**, подтвердите почту по ссылке из письма и войдите.
    На остальных устройствах войдите с той же почтой и паролем.

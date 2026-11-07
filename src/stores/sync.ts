@@ -3,7 +3,9 @@ import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
 import { db, KINDS, primaryKey, setLocalChangeListener, stripMeta, type Kind, type SyncMeta } from '@/lib/db';
 
-const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
+// нужен адрес проекта (https://….supabase.co); если вставили адрес REST API с «/rest/v1/», хвост отрезаем,
+// иначе вход и регистрация уходят на несуществующий путь и Supabase отвечает «Invalid path specified in request URL»
+const url = (import.meta.env.VITE_SUPABASE_URL as string | undefined)?.trim().replace(/\/(rest|auth)\/v1\/?$/, '').replace(/\/+$/, '');
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string | undefined;
 
 const supabase = url && anonKey ? createClient(url, anonKey) : null;
