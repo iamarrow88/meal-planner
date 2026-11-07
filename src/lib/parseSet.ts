@@ -215,9 +215,15 @@ interface RawGroup {
   notes: string[];
 }
 
+/** Заголовок только называет раздел, а блюда — в строках под ним. */
+const GENERIC_HEADING = /^(?:основное блюдо|дополнительное блюдо|дополнительно|напиток|десерт)$/i;
+
 function buildGroup(raw: RawGroup, warnings: string[]): SetGroup | null {
   const { heading } = raw;
-  const options = raw.lines.flatMap(parseOptions);
+  // «## Дополнительно» и строка «Хлебец» под ним без «-» и веса — это блюдо, а не пояснение
+  const plain = !raw.lines.length && GENERIC_HEADING.test(heading);
+  const options = (plain ? raw.notes : raw.lines).flatMap(parseOptions);
+  if (plain) raw.notes = [];
   const marked = CHOICE.test(heading);
   const two = /два варианта/i.test(heading);
   const halves = /половин/i.test(heading);
@@ -274,7 +280,8 @@ export function parseSet(markdown: string, fileName: string, meal: Meal): { set:
   for (const line of body.split(/\r?\n/)) {
     const t = line.trim();
     if (!t) continue;
-    const headed = /^#{1,6}\s/.test(t) || /^-\s+#{1,6}\s/.test(t);
+    // «##Напиток» без пробела тоже заголовок; один «#» без пробела — это тег Obsidian
+    const headed = /^(?:-\s+)?(?:#{1,6}\s|#{2,6}(?=[^\s#]))/.test(t);
     if (headed) {
       const heading = cleanHeading(t);
       skipping = SKIP_SECTION.test(heading);
