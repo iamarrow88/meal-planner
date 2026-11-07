@@ -24,6 +24,28 @@ export function describeLine(l: ShoppingLine) {
 /** По этому ключу продукты складываются: «Мука», «мука» и «мёд»/«мед» — один продукт. */
 const productKey = (name: string) => name.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
 
+/** Слова названия без скобок и в алфавитном порядке: «Гречка (отварная)» = «отварная гречка». */
+const wordsKey = (name: string) => productKey(name.replace(/[()]/g, ' ')).split(' ').sort().join(' ');
+
+/** Их не покупают: вода, бульон и уже готовые крупы, которые в рецептах указаны в отварном виде. */
+const NOT_BOUGHT = new Set(
+  [
+    'вода',
+    'вода (кипяток)',
+    'вода (теплая)',
+    'вода (для тушения)',
+    'бульон',
+    'бульон (или вода)',
+    'гречка отварная',
+    'рис отварной',
+    'пшенная каша',
+    'пшеничная каша',
+    'кукурузная каша',
+  ].map(wordsKey),
+);
+
+export const isNotBought = (name: string) => NOT_BOUGHT.has(wordsKey(name));
+
 /** Заглавная только первая буква; остальное как в заметке, чтобы не портить «(C1)» или «Hochland». */
 const displayName = (name: string) => {
   const s = name.replace(/\s+/g, ' ').trim();
@@ -57,6 +79,7 @@ export function buildShoppingList(
   const wholeRecipe = new Set<string>();
 
   const add = (ing: Ingredient, factor: number, dish: Dish) => {
+    if (isNotBought(ing.name)) return;
     const key = `${productKey(ing.name)}|${ing.amount == null ? '' : ing.unit}`;
     const line = map.get(key) ?? { key, name: displayName(ing.name), unit: ing.unit, amount: null, notes: [], dishes: [] };
     if (ing.amount != null) line.amount = (line.amount ?? 0) + ing.amount * factor;
