@@ -25,6 +25,22 @@
   }
 }
 
+/* на бумаге всегда светлая тема: тёмный фон не печатается, а светлый текст на белом не виден */
+@media print {
+  :root {
+    --color-bg: #ffffff;
+    --color-surface: #ffffff;
+    --color-ink: #000000;
+    --color-muted: #555555;
+    --color-line: #cccccc;
+    --color-accent: #000000;
+    color-scheme: light;
+  }
+  @page {
+    margin: 12mm;
+  }
+}
+
 @layer base {
   body {
     @apply bg-bg text-ink text-[15px] leading-snug antialiased;

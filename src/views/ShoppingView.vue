@@ -2,6 +2,7 @@
 import { computed, ref, watch } from 'vue';
 import PeriodBar from '@/components/PeriodBar.vue';
 import { CATEGORIES } from '@/lib/categories';
+import { formatDay } from '@/lib/dates';
 import { buildShoppingList, describeLine, lineTitle } from '@/lib/shopping';
 import { usePlanStore } from '@/stores/plan';
 import { useRecipesStore } from '@/stores/recipes';
@@ -38,6 +39,16 @@ watch(checkedKey, (key) => (checked.value = load(key, [])), { immediate: true })
 
 const list = computed(() => buildShoppingList(plan.days, sets.byId, recipes.byId, Number(people.value) || 1));
 const left = computed(() => list.value.lines.filter((l) => !checked.value.includes(l.key)).length);
+
+/** Подпись над распечатанным списком: за какой период и на сколько человек. */
+const printTitle = computed(() => {
+  const period = plan.length === 1 ? formatDay(plan.start) : `${formatDay(plan.start)} — ${formatDay(plan.end)}`;
+  const n = Number(people.value) || 1;
+  return n > 1 ? `${period}, на ${n} чел.` : period;
+});
+
+// на бумагу идёт только то, что ещё не куплено
+const print = () => window.print();
 
 function toggle(key: string) {
   checked.value = checked.value.includes(key) ? checked.value.filter((k) => k !== key) : [...checked.value, key];
@@ -78,8 +89,8 @@ async function copy() {
 
 <template>
   <section class="flex flex-col gap-3">
-    <PeriodBar />
-    <div class="card flex flex-col gap-2.5">
+    <PeriodBar class="print:hidden" />
+    <div class="card flex flex-col gap-2.5 print:hidden">
       <label class="flex items-center gap-2.5">
         <span class="hint">Сколько человек</span>
         <input v-model.number="people" type="number" min="1" placeholder="1" class="w-[150px]" />
@@ -88,49 +99,71 @@ async function copy() {
     </div>
 
     <p v-if="!list.lines.length" class="py-6 text-center text-muted">На выбранный период блюда не выбраны.</p>
-    <div v-else class="card">
-      <div class="flex items-center justify-between gap-2">
-        <h3 class="font-semibold">Купить: {{ left }} из {{ list.lines.length }}</h3>
-        <button class="link" @click="copy">Скопировать</button>
+    <div v-else class="card print:border-0 print:p-0">
+      <div class="hidden print:block">
+        <h2 class="text-[20px] font-bold">Список покупок</h2>
+        <p class="hint">{{ printTitle }}</p>
       </div>
-      <div class="mt-2 flex flex-wrap gap-2">
+      <div class="flex items-center justify-between gap-2 print:hidden">
+        <h3 class="font-semibold">Купить: {{ left }} из {{ list.lines.length }}</h3>
+        <div class="flex gap-4">
+          <button class="link" @click="print">Распечатать</button>
+          <button class="link" @click="copy">Скопировать</button>
+        </div>
+      </div>
+      <div class="mt-2 flex flex-wrap gap-2 print:hidden">
         <button class="chip" :class="{ 'chip-on': sort === 'category' }" @click="sort = 'category'">По категориям</button>
         <button class="chip" :class="{ 'chip-on': sort === 'alphabet' }" @click="sort = 'alphabet'">По алфавиту</button>
       </div>
-      <template v-for="s in sections" :key="s.title">
-        <h4 v-if="s.title" class="mt-4 text-[13px] font-semibold tracking-wide text-muted uppercase">{{ s.title }}</h4>
-        <ul class="mt-2">
-          <li v-for="l in s.lines" :key="l.key" class="border-b border-line py-2 last:border-b-0">
-            <label class="flex cursor-pointer items-center gap-2" :class="{ 'line-through opacity-50': checked.includes(l.key) }">
-              <input type="checkbox" :checked="checked.includes(l.key)" @change="toggle(l.key)" />
-              <span class="flex-1">
-                {{ l.name }}
-                <span class="hint">
-                  ·
-                  <template v-for="(d, i) in l.dishes" :key="d.title">
-                    <template v-if="i">, </template>
-                    <RouterLink
-                      v-if="d.recipe"
-                      :to="{ name: 'recipe', params: { id: d.recipe } }"
-                      class="text-accent underline underline-offset-2"
-                      @click.stop
-                      >{{ d.title }}</RouterLink
-                    >
-                    <template v-else>{{ d.title }}</template>
-                  </template>
+      <!-- на бумаге — в две колонки, чтобы список поместился на меньшее число страниц -->
+      <div class="print:mt-3 print:columns-2 print:gap-8">
+        <template v-for="s in sections" :key="s.title">
+          <!-- отдел, где всё куплено, на бумагу не попадает -->
+          <h4
+            v-if="s.title"
+            class="mt-4 text-[13px] font-semibold tracking-wide text-muted uppercase print:mt-3 print:break-after-avoid print:first:mt-0"
+            :class="{ 'print:hidden': s.lines.every((l) => checked.includes(l.key)) }"
+          >
+            {{ s.title }}
+          </h4>
+          <ul class="mt-2 print:mt-1">
+            <li
+              v-for="l in s.lines"
+              :key="l.key"
+              class="border-b border-line py-2 last:border-b-0 print:break-inside-avoid print:py-1"
+              :class="{ 'print:hidden': checked.includes(l.key) }"
+            >
+              <label class="flex cursor-pointer items-center gap-2" :class="{ 'line-through opacity-50': checked.includes(l.key) }">
+                <input type="checkbox" :checked="checked.includes(l.key)" @change="toggle(l.key)" />
+                <span class="flex-1">
+                  {{ l.name }}
+                  <span class="hint print:hidden">
+                    ·
+                    <template v-for="(d, i) in l.dishes" :key="d.title">
+                      <template v-if="i">, </template>
+                      <RouterLink
+                        v-if="d.recipe"
+                        :to="{ name: 'recipe', params: { id: d.recipe } }"
+                        class="text-accent underline underline-offset-2"
+                        @click.stop
+                        >{{ d.title }}</RouterLink
+                      >
+                      <template v-else>{{ d.title }}</template>
+                    </template>
+                  </span>
+                  <span v-if="l.items" class="mt-0.5 block text-[14px]">{{ l.items.join(', ') }}</span>
                 </span>
-                <span v-if="l.items" class="mt-0.5 block text-[14px]">{{ l.items.join(', ') }}</span>
-              </span>
-              <b>{{ describeLine(l) }}</b>
-            </label>
-          </li>
-        </ul>
-      </template>
+                <b>{{ describeLine(l) }}</b>
+              </label>
+            </li>
+          </ul>
+        </template>
+      </div>
     </div>
-    <p v-if="list.noIngredients.length" class="text-[13px] text-warn">
+    <p v-if="list.noIngredients.length" class="text-[13px] text-warn print:hidden">
       Нет ингредиентов в рецептах: {{ list.noIngredients.join(', ') }}
     </p>
-    <p v-if="list.wholeRecipe.length" class="text-[13px] text-warn">
+    <p v-if="list.wholeRecipe.length" class="text-[13px] text-warn print:hidden">
       Посчитаны целиком, потому что не указан вес готового блюда: {{ list.wholeRecipe.join(', ') }}
     </p>
   </section>

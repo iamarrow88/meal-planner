@@ -24,7 +24,7 @@ const tabs = [
 
 <template>
   <div class="flex min-h-screen flex-col">
-    <header class="flex items-center justify-between border-b border-line bg-surface px-4 py-3">
+    <header class="flex items-center justify-between border-b border-line bg-surface px-4 py-3 print:hidden">
       <h1 class="text-lg font-bold">Munch Mood</h1>
       <RouterLink
         v-if="sync.user"
@@ -37,11 +37,11 @@ const tabs = [
       </RouterLink>
     </header>
 
-    <main class="mx-auto w-full max-w-[820px] flex-1 px-4 pt-4 pb-24">
+    <main class="mx-auto w-full max-w-[820px] flex-1 px-4 pt-4 pb-24 print:max-w-none print:p-0">
       <RouterView />
     </main>
 
-    <nav class="fixed inset-x-0 bottom-0 flex justify-center border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]">
+    <nav class="fixed inset-x-0 bottom-0 flex justify-center border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] print:hidden">
       <RouterLink
         v-for="t in tabs"
         :key="t.to"
