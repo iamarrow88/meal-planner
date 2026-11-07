@@ -21,6 +21,15 @@ export function describeLine(l: ShoppingLine) {
   return l.amount != null ? `${formatAmount(l.amount)} ${l.unit}`.trim() : l.notes.join(', ');
 }
 
+/** По этому ключу продукты складываются: «Мука», «мука» и «мёд»/«мед» — один продукт. */
+const productKey = (name: string) => name.toLowerCase().replace(/ё/g, 'е').replace(/\s+/g, ' ').trim();
+
+/** Заглавная только первая буква; остальное как в заметке, чтобы не портить «(C1)» или «Hochland». */
+const displayName = (name: string) => {
+  const s = name.replace(/\s+/g, ' ').trim();
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
 /** Что выбрано в группе; группа без выбора входит в сет целиком. */
 export function selectedOptions(group: SetGroup, choice: MealChoice): SetOption[] {
   if (group.pick === 0) return group.options;
@@ -48,8 +57,8 @@ export function buildShoppingList(
   const wholeRecipe = new Set<string>();
 
   const add = (ing: Ingredient, factor: number, dish: Dish) => {
-    const key = `${ing.name.toLowerCase()}|${ing.amount == null ? '' : ing.unit}`;
-    const line = map.get(key) ?? { key, name: ing.name, unit: ing.unit, amount: null, notes: [], dishes: [] };
+    const key = `${productKey(ing.name)}|${ing.amount == null ? '' : ing.unit}`;
+    const line = map.get(key) ?? { key, name: displayName(ing.name), unit: ing.unit, amount: null, notes: [], dishes: [] };
     if (ing.amount != null) line.amount = (line.amount ?? 0) + ing.amount * factor;
     else if (ing.note && !line.notes.includes(ing.note)) line.notes.push(ing.note);
     if (!line.dishes.some((d) => d.title === dish.title)) line.dishes.push(dish);
