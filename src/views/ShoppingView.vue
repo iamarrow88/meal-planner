@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import PeriodBar from '@/components/PeriodBar.vue';
-import { buildShoppingList, describeLine } from '@/lib/shopping';
+import { buildShoppingList, describeLine, lineTitle } from '@/lib/shopping';
 import { usePlanStore } from '@/stores/plan';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
@@ -46,7 +46,7 @@ function toggle(key: string) {
 async function copy() {
   const text = list.value.lines
     .filter((l) => !checked.value.includes(l.key))
-    .map((l) => `• ${l.name}${describeLine(l) ? ` — ${describeLine(l)}` : ''}`)
+    .map((l) => `• ${lineTitle(l)}${describeLine(l) ? ` — ${describeLine(l)}` : ''}`)
     .join('\n');
   try {
     await navigator.clipboard.writeText(text);
@@ -94,6 +94,7 @@ async function copy() {
                   <template v-else>{{ d.title }}</template>
                 </template>
               </span>
+              <span v-if="l.items" class="mt-0.5 block text-[14px]">{{ l.items.join(', ') }}</span>
             </span>
             <b>{{ describeLine(l) }}</b>
           </label>
