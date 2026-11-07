@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import PeriodBar from '@/components/PeriodBar.vue';
+import { CATEGORIES } from '@/lib/categories';
 import { buildShoppingList, describeLine, lineTitle } from '@/lib/shopping';
 import { usePlanStore } from '@/stores/plan';
 import { useRecipesStore } from '@/stores/recipes';
@@ -43,11 +44,29 @@ function toggle(key: string) {
   store(checkedKey.value, checked.value);
 }
 
+type SortMode = 'category' | 'alphabet';
+const sort = ref<SortMode>(load('shoppingSort', 'category'));
+watch(sort, (mode) => store('shoppingSort', mode));
+
+/** По алфавиту — один общий список; по категориям — отделы в порядке CATEGORIES, внутри по алфавиту. */
+const sections = computed(() =>
+  sort.value === 'alphabet'
+    ? [{ title: '', lines: list.value.lines }]
+    : CATEGORIES.map((title) => ({ title, lines: list.value.lines.filter((l) => l.category === title) })).filter(
+        (s) => s.lines.length,
+      ),
+);
+
 async function copy() {
-  const text = list.value.lines
-    .filter((l) => !checked.value.includes(l.key))
-    .map((l) => `• ${lineTitle(l)}${describeLine(l) ? ` — ${describeLine(l)}` : ''}`)
-    .join('\n');
+  const text = sections.value
+    .map((s) => {
+      const lines = s.lines
+        .filter((l) => !checked.value.includes(l.key))
+        .map((l) => `• ${lineTitle(l)}${describeLine(l) ? ` — ${describeLine(l)}` : ''}`);
+      return lines.length ? [s.title, ...lines].filter(Boolean).join('\n') : '';
+    })
+    .filter(Boolean)
+    .join('\n\n');
   try {
     await navigator.clipboard.writeText(text);
     alert('Список скопирован');
@@ -74,32 +93,39 @@ async function copy() {
         <h3 class="font-semibold">Купить: {{ left }} из {{ list.lines.length }}</h3>
         <button class="link" @click="copy">Скопировать</button>
       </div>
-      <ul class="mt-2">
-        <li v-for="l in list.lines" :key="l.key" class="border-b border-line py-2 last:border-b-0">
-          <label class="flex cursor-pointer items-center gap-2" :class="{ 'line-through opacity-50': checked.includes(l.key) }">
-            <input type="checkbox" :checked="checked.includes(l.key)" @change="toggle(l.key)" />
-            <span class="flex-1">
-              {{ l.name }}
-              <span class="hint">
-                ·
-                <template v-for="(d, i) in l.dishes" :key="d.title">
-                  <template v-if="i">, </template>
-                  <RouterLink
-                    v-if="d.recipe"
-                    :to="{ name: 'recipe', params: { id: d.recipe } }"
-                    class="text-accent underline underline-offset-2"
-                    @click.stop
-                    >{{ d.title }}</RouterLink
-                  >
-                  <template v-else>{{ d.title }}</template>
-                </template>
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button class="chip" :class="{ 'chip-on': sort === 'category' }" @click="sort = 'category'">По категориям</button>
+        <button class="chip" :class="{ 'chip-on': sort === 'alphabet' }" @click="sort = 'alphabet'">По алфавиту</button>
+      </div>
+      <template v-for="s in sections" :key="s.title">
+        <h4 v-if="s.title" class="mt-4 text-[13px] font-semibold tracking-wide text-muted uppercase">{{ s.title }}</h4>
+        <ul class="mt-2">
+          <li v-for="l in s.lines" :key="l.key" class="border-b border-line py-2 last:border-b-0">
+            <label class="flex cursor-pointer items-center gap-2" :class="{ 'line-through opacity-50': checked.includes(l.key) }">
+              <input type="checkbox" :checked="checked.includes(l.key)" @change="toggle(l.key)" />
+              <span class="flex-1">
+                {{ l.name }}
+                <span class="hint">
+                  ·
+                  <template v-for="(d, i) in l.dishes" :key="d.title">
+                    <template v-if="i">, </template>
+                    <RouterLink
+                      v-if="d.recipe"
+                      :to="{ name: 'recipe', params: { id: d.recipe } }"
+                      class="text-accent underline underline-offset-2"
+                      @click.stop
+                      >{{ d.title }}</RouterLink
+                    >
+                    <template v-else>{{ d.title }}</template>
+                  </template>
+                </span>
+                <span v-if="l.items" class="mt-0.5 block text-[14px]">{{ l.items.join(', ') }}</span>
               </span>
-              <span v-if="l.items" class="mt-0.5 block text-[14px]">{{ l.items.join(', ') }}</span>
-            </span>
-            <b>{{ describeLine(l) }}</b>
-          </label>
-        </li>
-      </ul>
+              <b>{{ describeLine(l) }}</b>
+            </label>
+          </li>
+        </ul>
+      </template>
     </div>
     <p v-if="list.noIngredients.length" class="text-[13px] text-warn">
       Нет ингредиентов в рецептах: {{ list.noIngredients.join(', ') }}

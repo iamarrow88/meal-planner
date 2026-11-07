@@ -1,8 +1,10 @@
+import { categorize, type Category } from './categories';
 import type { DayPlan, Ingredient, MealChoice, MealSet, Recipe, SetGroup, SetOption } from './types';
 
 export interface ShoppingLine {
   key: string;
   name: string;
+  category: Category;
   unit: string;
   amount: number | null;
   notes: string[];
@@ -157,7 +159,16 @@ export function buildShoppingList(
     const spice = spiceNames(ing.name);
     if (spice) {
       const key = 'специи|';
-      const line = map.get(key) ?? { key, name: 'Специи и приправы', unit: '', amount: null, notes: [], dishes: [], items: [] };
+      const line = map.get(key) ?? {
+        key,
+        name: 'Специи и приправы',
+        category: 'Специи и приправы',
+        unit: '',
+        amount: null,
+        notes: [],
+        dishes: [],
+        items: [],
+      };
       for (const s of spice) if (!spices.has(wordsKey(s))) spices.set(wordsKey(s), displayName(s).toLowerCase());
       addDish(line, dish);
       map.set(key, line);
@@ -166,7 +177,15 @@ export function buildShoppingList(
 
     const { base, marks: own } = splitMarks(ing.name);
     const key = `${wordsKey(base)}|${ing.amount == null ? '' : ing.unit}`;
-    const line = map.get(key) ?? { key, name: displayName(base), unit: ing.unit, amount: null, notes: [], dishes: [] };
+    const line = map.get(key) ?? {
+      key,
+      name: displayName(base),
+      category: categorize(tidy(ing.name)),
+      unit: ing.unit,
+      amount: null,
+      notes: [],
+      dishes: [],
+    };
     const known = marks.get(key) ?? [];
     for (const m of own) if (!known.some((k) => productKey(k) === productKey(m))) known.push(m);
     marks.set(key, known);
