@@ -3,7 +3,8 @@ import { computed } from 'vue';
 import { halveLabel } from '@/lib/parseSet';
 import type { SetGroup, SetOption } from '@/lib/types';
 
-const props = defineProps<{ group: SetGroup; picked: string[] }>();
+/** required — в меню: невыбранный вариант подсвечивается, иначе его продукты не попадут в покупки. */
+const props = defineProps<{ group: SetGroup; picked: string[]; required?: boolean }>();
 const emit = defineEmits<{ change: [picked: string[]] }>();
 
 // вариант могли убрать из файла в Obsidian: такой выбор не считается
@@ -29,6 +30,10 @@ const hint = computed(() =>
       ? 'Два варианта на выбор'
       : '',
 );
+
+// «два варианта на выбор» ждёт оба, «по половине» и «один вариант» — один
+const needed = computed(() => Math.min(props.group.pick === 2 && !props.group.halves ? 2 : 1, props.group.options.length));
+const missing = (slot: number) => !!props.required && !valid.value[slot] && slot < needed.value;
 
 const recipeLinks = computed(() =>
   valid.value
@@ -66,6 +71,7 @@ function pick(slot: number, e: Event) {
         v-for="slot in slots"
         :key="slot"
         class="w-full"
+        :class="{ 'border-warn ring-1 ring-warn': missing(slot) }"
         :value="valid[slot] ?? ''"
         :aria-label="group.title"
         @change="pick(slot, $event)"
@@ -75,6 +81,7 @@ function pick(slot: number, e: Event) {
           {{ optionLabel(option, slot) }}
         </option>
       </select>
+      <p v-if="slots.some(missing)" class="text-[13px] text-warn">Выберите вариант — без него продукты не попадут в покупки.</p>
       <RouterLink
         v-for="link in recipeLinks"
         :key="link.id"

@@ -82,7 +82,7 @@ const SPICES = new Set(
 );
 
 /** Заглавная только первая буква; остальное как в заметке, чтобы не портить «(C1)» или «Hochland». */
-const displayName = (name: string) => {
+export const displayName = (name: string) => {
   const s = tidy(name);
   return s.charAt(0).toUpperCase() + s.slice(1);
 };
@@ -100,6 +100,14 @@ export function splitMarks(name: string): { base: string; marks: string[] } {
 }
 
 /** К специям относятся продукты из списка и всё, что в заметке помечено «(специи)». */
+/** Продукт без пометок как набор слов: «Творог 5% (брикет)» → «творог». Так его ищут при подборе сетов. */
+export const productBase = (name: string) => wordsKey(splitMarks(name).base);
+
+export const isSpice = (name: string) => spiceNames(name) != null;
+
+/** Специи и то, что не покупают, при подборе сетов по продуктам не предлагаются. */
+export const isPantryStaple = (name: string) => isNotBought(name) || isSpice(name);
+
 function spiceNames(name: string): string[] | null {
   const { base, marks } = splitMarks(name);
   if (SPICES.has(wordsKey(name)) || SPICES.has(wordsKey(base))) return [base];
