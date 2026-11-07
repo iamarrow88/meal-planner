@@ -1,0 +1,87 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-bg: #faf8f5;
+  --color-surface: #ffffff;
+  --color-ink: #2a2723;
+  --color-muted: #7a736b;
+  --color-line: #e6e0d8;
+  --color-accent: #3d7a5a;
+  --color-accent-soft: #e3efe8;
+  --color-warn: #b3412e;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg: #1b1a18;
+    --color-surface: #262421;
+    --color-ink: #ece7e0;
+    --color-muted: #a39b91;
+    --color-line: #3a3733;
+    --color-accent: #6fb48d;
+    --color-accent-soft: #2b3a31;
+    --color-warn: #ef7d69;
+    color-scheme: dark;
+  }
+}
+
+@layer base {
+  body {
+    @apply bg-bg text-ink text-[15px] leading-snug antialiased;
+  }
+  input,
+  select {
+    @apply min-w-0 rounded-lg border border-line bg-surface px-2.5 py-2;
+  }
+  input[type='checkbox'] {
+    @apply size-[18px] p-0 accent-accent;
+  }
+  button:disabled {
+    @apply cursor-not-allowed opacity-50;
+  }
+}
+
+@utility card {
+  @apply rounded-xl border border-line bg-surface p-3.5;
+}
+@utility btn {
+  @apply cursor-pointer rounded-[10px] border border-transparent px-4 py-2.5 font-semibold;
+}
+@utility btn-primary {
+  @apply btn bg-accent text-white;
+}
+@utility btn-secondary {
+  @apply btn border-line bg-surface;
+}
+@utility btn-danger {
+  @apply btn self-start border-warn text-warn;
+}
+@utility link {
+  @apply cursor-pointer self-start py-1 text-accent;
+}
+@utility chip {
+  @apply cursor-pointer rounded-2xl border border-line bg-surface px-3 py-1.5 text-left;
+}
+@utility chip-on {
+  @apply border-accent bg-accent-soft font-semibold text-accent;
+}
+@utility hint {
+  @apply text-[13px] text-muted;
+}
+
+/* оформление текста рецепта, полученного из markdown */
+.markdown h1 {
+  @apply mt-1.5 mb-2.5 text-[22px] font-bold;
+}
+.markdown h2 {
+  @apply mt-4 mb-1.5 text-[17px] font-semibold;
+}
+.markdown p {
+  @apply my-2;
+}
+.markdown ul {
+  @apply list-disc pl-6;
+}
+.markdown ol {
+  @apply list-decimal pl-6;
+}
