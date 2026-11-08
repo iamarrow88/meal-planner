@@ -71,6 +71,17 @@ export interface Favorite {
   id: string; // id сета
 }
 
+/**
+ * Сохранённое меню на день или неделю, чтобы подставить его на другие даты.
+ * Дни хранятся по порядку, без дат: первый день меню ложится на выбранную дату.
+ */
+export interface SavedMenu {
+  id: string;
+  name: string;
+  days: Partial<Record<Meal, MealChoice>>[];
+  createdAt: number;
+}
+
 export interface DayPlan {
   date: string; // YYYY-MM-DD
   meals: Partial<Record<Meal, MealChoice>>;

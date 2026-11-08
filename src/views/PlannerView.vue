@@ -3,6 +3,7 @@ import { computed, ref } from 'vue';
 import MealSlot from '@/components/MealSlot.vue';
 import PeriodBar from '@/components/PeriodBar.vue';
 import ProductPicker from '@/components/ProductPicker.vue';
+import SavedMenus from '@/components/SavedMenus.vue';
 import { formatDay, today } from '@/lib/dates';
 import { MEALS } from '@/lib/types';
 import { usePantryStore } from '@/stores/pantry';
@@ -31,6 +32,7 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
       <RouterLink to="/data" class="text-accent">«Данные»</RouterLink> — тогда здесь можно будет выбрать блюда.
     </p>
     <template v-else>
+      <SavedMenus />
       <div v-for="day in plan.days" :key="day.date" class="card" :class="{ 'border-accent': day.date === today() }">
         <div class="flex items-center justify-between gap-2">
           <h3 class="font-semibold first-letter:uppercase">{{ formatDay(day.date) }}</h3>

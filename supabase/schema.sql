@@ -1,5 +1,5 @@
 -- Выполнить один раз в Supabase: SQL Editor → New query → вставить → Run.
--- Все данные приложения (рецепты, сеты, дни меню, избранное) хранятся в одной таблице,
+-- Все данные приложения (рецепты, сеты, дни меню, избранное, сохранённые меню) хранятся в одной таблице,
 -- каждая строка видна только своему владельцу.
 
 create table if not exists public.items (
@@ -15,7 +15,7 @@ create table if not exists public.items (
 
 -- Отдельно от таблицы, чтобы повторный запуск скрипта обновлял список и в уже созданной базе.
 alter table public.items drop constraint if exists items_kind_check;
-alter table public.items add constraint items_kind_check check (kind in ('recipes', 'sets', 'days', 'favorites'));
+alter table public.items add constraint items_kind_check check (kind in ('recipes', 'sets', 'days', 'favorites', 'menus'));
 
 create index if not exists items_user_synced on public.items (user_id, synced_at);
 

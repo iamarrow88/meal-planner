@@ -56,7 +56,7 @@ async function pull(userId: string) {
     if (error) throw error;
     const rows = (data ?? []) as RemoteRow[];
 
-    await db.transaction('rw', db.recipes, db.sets, db.days, db.favorites, async () => {
+    await db.transaction('rw', [db.recipes, db.sets, db.days, db.favorites, db.menus], async () => {
       for (const row of rows) {
         if (!(KINDS as readonly string[]).includes(row.kind)) continue;
         const table = db.table(row.kind);
