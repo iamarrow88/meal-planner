@@ -96,7 +96,7 @@ const liked = computed(() =>
             <StarRating kind="set" :id="s.id" readonly />
             <span class="hint">{{ s.groups.map((gr) => gr.title).join(' · ') }}</span>
           </RouterLink>
-          <AddToMenu :set="s" small />
+          <AddToMenu :set="s" small own-meal />
         </div>
       </div>
     </div>

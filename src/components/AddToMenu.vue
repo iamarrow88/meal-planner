@@ -9,8 +9,9 @@ import { useSetsStore } from '@/stores/sets';
 /**
  * Кнопка «Добавить в меню»: выбрать день и приём пищи и поставить туда сет.
  * `picks` — уже выбранные варианты (на странице сета); остальное можно выбрать потом в меню.
+ * `ownMeal` — только тот приём пищи, для которого сет (на главной).
  */
-const props = defineProps<{ set: MealSet; picks?: MealChoice['picks']; small?: boolean }>();
+const props = defineProps<{ set: MealSet; picks?: MealChoice['picks']; small?: boolean; ownMeal?: boolean }>();
 
 const plan = usePlanStore();
 const sets = useSetsStore();
@@ -54,6 +55,8 @@ async function add() {
   open.value = false;
 }
 
+const meals = computed(() => (props.ownMeal ? [props.set.meal] : MEALS));
+
 const quick = [
   { label: 'Сегодня', date: () => today() },
   { label: 'Завтра', date: () => addDays(today(), 1) },
@@ -86,7 +89,7 @@ const quick = [
       </div>
       <div class="flex flex-wrap items-center gap-1.5">
         <span class="w-[92px] shrink-0 font-medium">Приём пищи</span>
-        <button v-for="m in MEALS" :key="m" class="chip py-1" :class="{ 'chip-on': meal === m }" @click="meal = m">
+        <button v-for="m in meals" :key="m" class="chip py-1" :class="{ 'chip-on': meal === m }" @click="meal = m">
           {{ MEAL_LABELS[m] }}
         </button>
       </div>
