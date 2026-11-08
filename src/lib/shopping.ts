@@ -38,11 +38,21 @@ const tidy = (name: string) => name.replace(/\s+/g, ' ').replace(/(\d)\s+%/g, '$
 /** По этому ключу продукты складываются: «Мука», «мука» и «мёд»/«мед» — один продукт. */
 const productKey = (name: string) => tidy(name).toLowerCase().replace(/ё/g, 'е');
 
-/** Слова названия без скобок и в алфавитном порядке: «Гречка (отварная)» = «отварная гречка». */
-const wordsKey = (name: string) => productKey(name.replace(/[()]/g, ' ')).split(' ').sort().join(' ');
+/**
+ * Слова названия без скобок и в алфавитном порядке: «Гречка (отварная)» = «отварная гречка».
+ * «В собственном соку» — те же консервы: «Тунец в собственном соку» = «Тунец консервированный».
+ * Дефис между словами — как пробел: «Помидоры-черри» = «Помидоры черри».
+ */
+const wordsKey = (name: string) =>
+  productKey(name.replace(/в собственном соку/gi, 'консервированный').replace(/[()]|(?<=\p{L})-(?=\p{L})/gu, ' '))
+    .split(' ')
+    .sort()
+    .join(' ');
 
 /** Слово без окончания: «яйца» и «яйцо», «помидоры» и «помидор», «куриное» и «куриный» совпадают. */
-export const stem = (word: string) => (word.length > 3 ? word.replace(/[аеиоуыэюяйь]+$/, '') : word);
+// беглая гласная: «хлебец» — «хлебцы», «огурец» — «огурцы», «кабачок» — «кабачки»
+export const stem = (word: string) =>
+  word.length > 3 ? word.replace(/[аеиоуыэюяйь]+$/, '').replace(/е(ц)$|о(к)$/, '$1$2') : word;
 
 /** Строка списка покупок: слова без окончаний, так «Яйцо 2 шт» и «Яйца 1 шт» складываются. */
 const lineKey = (base: string) => wordsKey(base).split(' ').map(stem).sort().join(' ');
@@ -50,7 +60,7 @@ const lineKey = (base: string) => wordsKey(base).split(' ').map(stem).sort().joi
 /** Примерные веса продуктов (units.ts) по ключу строки. */
 const WEIGHT_BY_KEY = new Map(Object.entries(WEIGHTS).map(([name, w]) => [lineKey(name), w]));
 
-/** Их не покупают: вода, бульон и уже готовые крупы, которые в рецептах указаны в отварном виде. */
+/** Их не покупают: вода, бульон, чай/кофе к приёму пищи и уже готовые крупы, которые в рецептах указаны в отварном виде. */
 const NOT_BOUGHT = new Set(
   [
     'вода',
@@ -64,6 +74,11 @@ const NOT_BOUGHT = new Set(
     'пшенная каша',
     'пшеничная каша',
     'кукурузная каша',
+    // напиток к приёму пищи: чай и кофе всегда есть дома
+    'чай/кофе',
+    'чай или кофе',
+    'чай',
+    'кофе',
   ].map(wordsKey),
 );
 
@@ -140,7 +155,9 @@ export function splitMarks(name: string): { base: string; marks: string[] } {
       // «(можно заменить на тунец в собственном соку)», «(запеченная или копченая)» — подсказка, а не другой продукт
       OTHER_PRODUCT.test(m) && !/(^|\s)(или|можно)\s/i.test(m) ? whole : (marks.push(tidy(m)), ' '),
     )
-    .replace(/\s*\d+(?:[.,]\d+)?%/g, (m) => (marks.push(m.trim()), ' '));
+    .replace(/\s*\d+(?:[.,]\d+)?%/g, (m) => (marks.push(m.trim()), ' '))
+    // «Сыр обычный» — это просто «Сыр»
+    .replace(/(^|\s)обычн(ый|ая|ое|ые)(?=\s|$)/gi, ' ');
   return { base: tidy(base), marks: marks.filter(Boolean) };
 }
 
