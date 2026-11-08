@@ -14,6 +14,9 @@ function optionIngredients(option: SetOption, recipes: Map<string, Recipe>): Ing
 }
 
 
+/** «Желаемый вариант — не более 100 кк на порцию» — свободный выбор, а не продукт: его не ищут и не докупают. */
+const NOT_A_PRODUCT = /^желаемый вариант/i;
+
 /** Ключ продукта для подбора: слова без пометок и окончаний. */
 const productKey = (name: string) => productBase(name).split(' ').map(stem).join(' ');
 
@@ -46,7 +49,7 @@ export function buildCatalog(sets: MealSet[], recipes: Map<string, Recipe>): Pro
   const names = new Map<string, string>();
   const note = (ingredients: Ingredient[]) => {
     for (const i of ingredients) {
-      if (isPantryStaple(i.name)) continue;
+      if (isPantryStaple(i.name) || NOT_A_PRODUCT.test(i.name)) continue;
       const key = productKey(i.name);
       if (key && !names.has(key)) names.set(key, displayName(splitMarks(i.name).base));
     }
@@ -78,12 +81,12 @@ export interface Suggestion {
  * в каждом варианте — сначала его собственные продукты, потом рецепт по порядку.
  * Разделы, где вариант не выбран, пропускаются: что там понадобится, ещё неизвестно.
  */
-function missingProducts(set: MealSet, choice: MealChoice, products: string[], recipes: Map<string, Recipe>) {
+export function missingProducts(set: MealSet, choice: MealChoice, products: string[], recipes: Map<string, Recipe>) {
   const seen = new Set<string>();
   const out: string[] = [];
   const add = (ingredients: Ingredient[]) => {
     for (const i of ingredients) {
-      if (isPantryStaple(i.name)) continue;
+      if (isPantryStaple(i.name) || NOT_A_PRODUCT.test(i.name)) continue;
       const key = productKey(i.name);
       if (!key || seen.has(key) || products.some((p) => contains(key, p))) continue;
       seen.add(key);
@@ -92,7 +95,7 @@ function missingProducts(set: MealSet, choice: MealChoice, products: string[], r
   };
   for (const group of set.groups) {
     add(group.common);
-    const ids = choice.picks[group.id];
+    const ids = choice.picks?.[group.id];
     const options = group.pick ? group.options.filter((o) => ids?.includes(o.id)) : group.options;
     for (const option of options) add(optionIngredients(option, recipes));
   }

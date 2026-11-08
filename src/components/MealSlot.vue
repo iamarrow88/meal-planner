@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import GroupPicker from '@/components/GroupPicker.vue';
-import { suggestSets } from '@/lib/matching';
+import { missingProducts, suggestSets } from '@/lib/matching';
 import { MEAL_LABELS, type Meal, type MealChoice, type MealSet, type SetGroup } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useRecipesStore } from '@/stores/recipes';
@@ -42,6 +42,16 @@ function pickSuggestion(choice: MealChoice) {
 }
 
 const set = computed(() => props.sets.find((s) => s.id === props.choice?.setId));
+
+// что докупить для выбранного сета — по тем вариантам, что выбраны сейчас, а не по подобранным автоматически
+const missingNow = computed(() =>
+  set.value && props.choice && props.products?.length
+    ? missingProducts(set.value, props.choice, props.products, recipes.byId)
+    : [],
+);
+// пока где-то не выбран вариант, «всё есть» сказать нельзя
+const allPicked = computed(() => !!set.value?.groups.every((g) => !g.pick || props.choice?.picks?.[g.id]?.length));
+const missingOf = (s: { set: MealSet; missing: string[] }) => (s.set.id === props.choice?.setId ? missingNow.value : s.missing);
 
 // избранные сеты наверху списка
 const setGroups = computed(() => {
@@ -89,12 +99,12 @@ function pickOptions(group: SetGroup, picked: string[]) {
         :key="s.set.id"
         class="chip flex flex-col items-start gap-0.5"
         :class="{ 'chip-on': choice?.setId === s.set.id }"
-        :title="s.missing.length ? `Ещё нужно: ${s.missing.join(', ')}` : undefined"
+        :title="missingOf(s).length ? `Ещё нужно: ${missingOf(s).join(', ')}` : undefined"
         @click="pickSuggestion(s.choice)"
       >
         <span>{{ favorites.has(s.set.id) ? '★ ' : '' }}{{ s.set.name }}</span>
         <!-- сколько поместится в две строки, начиная с первых продуктов сета -->
-        <span v-if="s.missing.length" class="hint line-clamp-2 font-normal">ещё нужно: {{ s.missing.join(', ') }}</span>
+        <span v-if="missingOf(s).length" class="hint line-clamp-2 font-normal">ещё нужно: {{ missingOf(s).join(', ') }}</span>
         <span v-else class="hint font-normal">всё есть</span>
       </button>
       <div class="flex gap-4">
@@ -116,6 +126,9 @@ function pickOptions(group: SetGroup, picked: string[]) {
         required
         @change="(picked) => pickOptions(group, picked)"
       />
+      <p v-if="products?.length && !browsing && (missingNow.length || allPicked)" class="hint">
+        {{ missingNow.length ? `Ещё нужно для выбранных блюд: ${missingNow.join(', ')}` : 'Всё для выбранных блюд есть дома.' }}
+      </p>
     </template>
   </div>
 </template>
