@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref, watch } from 'vue';
 import GroupPicker from '@/components/GroupPicker.vue';
 import { suggestSets } from '@/lib/matching';
 import { MEAL_LABELS, type Meal, type MealChoice, type MealSet, type SetGroup } from '@/lib/types';
@@ -12,8 +12,34 @@ const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 const favorites = useFavoritesStore();
 const recipes = useRecipesStore();
 
-// до трёх сетов, где больше всего продуктов, которые есть дома
-const suggestions = computed(() => suggestSets(props.sets, props.products ?? [], recipes.byId, favorites.has));
+const PAGE = 3;
+
+// по три сета, где больше всего продуктов, которые есть дома; «Другие» показывают следующие три
+const offset = ref(0);
+const suggestions = computed(() =>
+  suggestSets(props.sets, props.products ?? [], recipes.byId, favorites.has, PAGE, offset.value),
+);
+
+// после последних вариантов — снова с начала
+const showOthers = () => {
+  const next = offset.value + PAGE;
+  offset.value = next < suggestions.value.total ? next : 0;
+};
+
+// другой набор продуктов — другие сеты, показываем лучшие с начала
+watch(
+  () => (props.products ?? []).join(),
+  () => (offset.value = 0),
+);
+
+// когда сет выбран, предложения прячутся; «Подобрать другой» открывает их снова
+const browsing = ref(false);
+const showSuggestions = computed(() => !!props.products?.length && (!props.choice || browsing.value));
+
+function pickSuggestion(choice: MealChoice) {
+  browsing.value = false;
+  emit('change', choice);
+}
 
 const set = computed(() => props.sets.find((s) => s.id === props.choice?.setId));
 
@@ -48,23 +74,37 @@ function pickOptions(group: SetGroup, picked: string[]) {
         </optgroup>
       </select>
     </div>
-    <div v-if="suggestions.length" class="flex flex-col gap-1.5">
-      <span class="hint">Подходит по продуктам — нажмите, чтобы выбрать:</span>
+    <button v-if="products?.length && choice && !browsing" class="link text-[13px]" @click="browsing = true">
+      🧺 Подобрать другой по продуктам
+    </button>
+    <div v-if="showSuggestions && suggestions.items.length" class="flex flex-col gap-1.5">
+      <div class="flex items-baseline justify-between gap-2">
+        <span class="hint">Подходит по продуктам — нажмите, чтобы выбрать:</span>
+        <span v-if="suggestions.total > PAGE" class="hint shrink-0">
+          {{ offset + 1 }}–{{ offset + suggestions.items.length }} из {{ suggestions.total }}
+        </span>
+      </div>
       <button
-        v-for="s in suggestions"
+        v-for="s in suggestions.items"
         :key="s.set.id"
         class="chip flex flex-col items-start gap-0.5"
         :class="{ 'chip-on': choice?.setId === s.set.id }"
         :title="s.missing.length ? `Ещё нужно: ${s.missing.join(', ')}` : undefined"
-        @click="emit('change', s.choice)"
+        @click="pickSuggestion(s.choice)"
       >
         <span>{{ favorites.has(s.set.id) ? '★ ' : '' }}{{ s.set.name }}</span>
         <!-- сколько поместится в две строки, начиная с первых продуктов сета -->
         <span v-if="s.missing.length" class="hint line-clamp-2 font-normal">ещё нужно: {{ s.missing.join(', ') }}</span>
         <span v-else class="hint font-normal">всё есть</span>
       </button>
+      <div class="flex gap-4">
+        <button v-if="suggestions.total > PAGE" class="link text-[14px]" @click="showOthers">
+          {{ offset + PAGE >= suggestions.total ? '↺ К первым вариантам' : 'Другие ›' }}
+        </button>
+        <button v-if="browsing" class="link text-[14px] text-muted" @click="browsing = false">Скрыть</button>
+      </div>
     </div>
-    <p v-else-if="products?.length" class="hint">Сетов с этими продуктами нет.</p>
+    <p v-else-if="showSuggestions" class="hint">Сетов с этими продуктами нет.</p>
     <p v-if="choice && !set" class="text-[13px] text-warn">Этого сета больше нет — выберите другой.</p>
     <template v-if="set">
       <p v-if="set.note" class="hint">{{ set.note }}</p>

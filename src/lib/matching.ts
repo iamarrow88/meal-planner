@@ -134,8 +134,9 @@ function autoPicks(set: MealSet, products: string[], recipes: Map<string, Recipe
 }
 
 /**
- * До `limit` сетов, где встречается больше всего выбранных продуктов. При равенстве выше те,
- * где продукты указаны прямо в сете, а не только в рецептах, затем избранные.
+ * Сеты, где встречается больше всего выбранных продуктов, — `limit` штук начиная с `offset`
+ * (кнопка «Другие» листает дальше). При равенстве выше те, где продукты указаны прямо в сете,
+ * а не только в рецептах, затем избранные. `total` — сколько подходящих сетов всего.
  */
 export function suggestSets(
   sets: MealSet[],
@@ -143,9 +144,10 @@ export function suggestSets(
   recipes: Map<string, Recipe>,
   isFavorite: (setId: string) => boolean,
   limit = 3,
-): Suggestion[] {
-  if (!products.length) return [];
-  return sets
+  offset = 0,
+): { items: Suggestion[]; total: number } {
+  if (!products.length) return { items: [], total: 0 };
+  const ranked = sets
     .map((set) => ({ set, products: matched(setKeys(set, recipes), products) }))
     .filter((s) => s.products.length)
     .map((s) => ({ ...s, auto: autoPicks(s.set, s.products, recipes) }))
@@ -155,10 +157,11 @@ export function suggestSets(
         b.auto.score - a.auto.score ||
         Number(isFavorite(b.set.id)) - Number(isFavorite(a.set.id)) ||
         a.set.name.localeCompare(b.set.name, 'ru', { numeric: true }),
-    )
-    .slice(0, limit)
-    .map(({ set, products: found, auto }) => {
-      const choice = { setId: set.id, picks: auto.picks };
-      return { set, products: found, choice, missing: missingProducts(set, choice, products, recipes) };
-    });
+    );
+  // «что ещё нужно» считаем только для показанных сетов
+  const items = ranked.slice(offset, offset + limit).map(({ set, products: found, auto }) => {
+    const choice = { setId: set.id, picks: auto.picks };
+    return { set, products: found, choice, missing: missingProducts(set, choice, products, recipes) };
+  });
+  return { items, total: ranked.length };
 }
