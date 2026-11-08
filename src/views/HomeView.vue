@@ -2,24 +2,27 @@
 import { computed, ref } from 'vue';
 import AddToMenu from '@/components/AddToMenu.vue';
 import SavedMenus from '@/components/SavedMenus.vue';
+import StarRating from '@/components/StarRating.vue';
 import { addDays, formatDay, today } from '@/lib/dates';
 import { db } from '@/lib/db';
 import { useLiveQuery } from '@/lib/live';
 import { dailyTips } from '@/lib/tips';
 import { MEALS, MEAL_LABELS, type DayPlan } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
+import { useRatingsStore } from '@/stores/ratings';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
 
 const recipes = useRecipesStore();
 const sets = useSetsStore();
 const favorites = useFavoritesStore();
+const ratings = useRatingsStore();
 
 // для совета нужна вся история меню, а не только открытый период
 const days = useLiveQuery<DayPlan[]>(() => db.days.filter((d) => !d.deleted).toArray(), []);
 
 const day = today();
-const tips = computed(() => dailyTips(days.value, sets.byId, recipes.recipes, day));
+const tips = computed(() => dailyTips(days.value, sets.byId, recipes.recipes, day, ratings.ofRecipe));
 // «Другой совет» листает дальше, после последнего — снова первый
 const index = ref(0);
 const tip = computed(() => (tips.value.length ? tips.value[index.value % tips.value.length] : undefined));
@@ -33,7 +36,13 @@ function daysAgo(date: string) {
 const shortDay = (iso: string) => formatDay(iso).replace(/^[^,]*,\s*/, '');
 
 const liked = computed(() =>
-  MEALS.map((meal) => ({ meal, sets: sets.sets.filter((s) => s.meal === meal && favorites.has(s.id)) })).filter(
+  // внутри приёма пищи — сначала оценённые выше
+  MEALS.map((meal) => ({
+    meal,
+    sets: sets.sets
+      .filter((s) => s.meal === meal && favorites.has(s.id))
+      .sort((a, b) => (ratings.ofSet(b.id) ?? 3) - (ratings.ofSet(a.id) ?? 3)),
+  })).filter(
     (g) => g.sets.length,
   ),
 );
@@ -84,6 +93,7 @@ const liked = computed(() =>
         <div v-for="s in g.sets" :key="s.id" class="card flex flex-col gap-1 py-3">
           <RouterLink :to="{ name: 'set', params: { id: s.id } }" class="flex flex-col gap-0.5">
             <span class="font-semibold">{{ s.name }}</span>
+            <StarRating kind="set" :id="s.id" readonly />
             <span class="hint">{{ s.groups.map((gr) => gr.title).join(' · ') }}</span>
           </RouterLink>
           <AddToMenu :set="s" small />

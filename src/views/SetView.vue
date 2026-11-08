@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import AddToMenu from '@/components/AddToMenu.vue';
 import GroupPicker from '@/components/GroupPicker.vue';
+import StarRating from '@/components/StarRating.vue';
 import { MEAL_LABELS, type SetGroup } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useSetsStore } from '@/stores/sets';
@@ -28,6 +29,7 @@ function pickOptions(group: SetGroup, next: string[]) {
         <div class="hint">{{ MEAL_LABELS[set.meal] }} · {{ set.source }}</div>
         <h2 class="text-[22px] font-bold">{{ set.name }}</h2>
         <p v-if="set.note" class="hint mt-1">{{ set.note }}</p>
+        <StarRating kind="set" :id="set.id" class="mt-1.5" />
       </div>
 
       <div v-for="group in set.groups" :key="group.id" class="card">

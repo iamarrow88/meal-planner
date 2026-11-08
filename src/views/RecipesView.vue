@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import StarRating from '@/components/StarRating.vue';
 import { MEALS, MEAL_LABELS, type Meal } from '@/lib/types';
 import { useRecipesStore } from '@/stores/recipes';
 
@@ -43,6 +44,7 @@ const countFor = (meal: Meal) => store.recipes.filter((r) => r.meals.includes(me
         <li v-for="r in visible" :key="r.id">
           <RouterLink :to="{ name: 'recipe', params: { id: r.id } }" class="card flex flex-col gap-0.5 py-3">
             <span class="font-semibold">{{ r.title }}</span>
+            <StarRating kind="recipe" :id="r.id" readonly />
             <span class="hint">
               {{ r.meals.map((m) => MEAL_LABELS[m]).join(', ') }}<template v-if="r.time"> · {{ r.time }}</template>
             </span>

@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { DayPlan, Favorite, MealSet, Recipe, SavedMenu } from './types';
+import type { DayPlan, Favorite, MealSet, Rating, Recipe, SavedMenu } from './types';
 
 /** Служебные поля для синхронизации, хранятся рядом с данными. */
 export interface SyncMeta {
@@ -8,7 +8,7 @@ export interface SyncMeta {
   dirty?: 0 | 1; // 1 — изменено локально и ещё не отправлено
 }
 
-export const KINDS = ['recipes', 'sets', 'days', 'favorites', 'menus'] as const;
+export const KINDS = ['recipes', 'sets', 'days', 'favorites', 'menus', 'ratings'] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const db = new Dexie('meal-planner') as Dexie & {
@@ -17,6 +17,7 @@ export const db = new Dexie('meal-planner') as Dexie & {
   days: EntityTable<DayPlan & SyncMeta, 'date'>;
   favorites: EntityTable<Favorite & SyncMeta, 'id'>;
   menus: EntityTable<SavedMenu & SyncMeta, 'id'>;
+  ratings: EntityTable<Rating & SyncMeta, 'id'>;
 };
 
 db.version(1).stores({
@@ -60,6 +61,8 @@ db.version(4).stores({ favorites: 'id, dirty' });
 
 db.version(5).stores({ menus: 'id, dirty' });
 
+db.version(6).stores({ ratings: 'id, dirty' });
+
 export const primaryKey =(kind: Kind) => (kind === 'days' ? 'date' : 'id');
 
 export function stripMeta<T extends SyncMeta>(row: T): Omit<T, keyof SyncMeta> {
@@ -80,6 +83,7 @@ export async function save(kind: 'sets', items: MealSet[]): Promise<void>;
 export async function save(kind: 'days', items: DayPlan[]): Promise<void>;
 export async function save(kind: 'favorites', items: Favorite[]): Promise<void>;
 export async function save(kind: 'menus', items: SavedMenu[]): Promise<void>;
+export async function save(kind: 'ratings', items: Rating[]): Promise<void>;
 export async function save(kind: Kind, items: object[]) {
   const now = Date.now();
   await db.table(kind).bulkPut(items.map((i) => ({ ...stripMeta(i), ...fresh(now) })));
@@ -104,6 +108,7 @@ export interface Backup {
   days: DayPlan[];
   favorites?: Favorite[]; // в старых копиях его нет
   menus?: SavedMenu[];
+  ratings?: Rating[];
 }
 
 async function live<K extends Kind>(kind: K) {
@@ -112,19 +117,20 @@ async function live<K extends Kind>(kind: K) {
 }
 
 export async function exportAll(): Promise<Backup> {
-  const [recipes, sets, days, favorites, menus] = await Promise.all([
+  const [recipes, sets, days, favorites, menus, ratings] = await Promise.all([
     live('recipes'),
     live('sets'),
     live('days'),
     live('favorites'),
     live('menus'),
+    live('ratings'),
   ]);
-  return { version: 1, exportedAt: new Date().toISOString(), recipes, sets, days, favorites, menus };
+  return { version: 1, exportedAt: new Date().toISOString(), recipes, sets, days, favorites, menus, ratings };
 }
 
 export async function importAll(data: Backup) {
   const now = Date.now();
-  await db.transaction('rw', [db.recipes, db.sets, db.days, db.favorites, db.menus], async () => {
+  await db.transaction('rw', [db.recipes, db.sets, db.days, db.favorites, db.menus, db.ratings], async () => {
     for (const kind of KINDS) {
       await db.table(kind).toCollection().modify({ deleted: true, dirty: 1, updatedAt: now });
       await db.table(kind).bulkPut((data[kind] ?? []).map((i: object) => ({ ...stripMeta(i), ...fresh(now) })));

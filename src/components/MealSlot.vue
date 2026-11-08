@@ -4,6 +4,7 @@ import GroupPicker from '@/components/GroupPicker.vue';
 import { missingProducts, suggestSets } from '@/lib/matching';
 import { MEAL_LABELS, type Meal, type MealChoice, type MealSet, type SetGroup } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
+import { useRatingsStore } from '@/stores/ratings';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
 
@@ -11,6 +12,8 @@ const props = defineProps<{ meal: Meal; sets: MealSet[]; choice?: MealChoice; pr
 const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 
 const favorites = useFavoritesStore();
+const ratings = useRatingsStore();
+const prefs = { isFavorite: favorites.has, setRating: ratings.ofSet, recipeRating: ratings.ofRecipe };
 const recipes = useRecipesStore();
 const allSets = useSetsStore();
 
@@ -19,7 +22,7 @@ const PAGE = 3;
 // по три сета, где больше всего продуктов, которые есть дома; «Другие» показывают следующие три
 const offset = ref(0);
 const suggestions = computed(() =>
-  suggestSets(props.sets, props.products ?? [], recipes.byId, favorites.has, PAGE, offset.value),
+  suggestSets(props.sets, props.products ?? [], recipes.byId, prefs, PAGE, offset.value),
 );
 
 // после последних вариантов — снова с начала

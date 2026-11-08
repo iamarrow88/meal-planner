@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import AddToMenu from '@/components/AddToMenu.vue';
+import StarRating from '@/components/StarRating.vue';
 import { MEALS, MEAL_LABELS, type Meal } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useSetsStore } from '@/stores/sets';
@@ -41,6 +42,7 @@ const visible = computed(() => {
           <div class="flex min-w-0 flex-1 flex-col gap-1">
             <RouterLink :to="{ name: 'set', params: { id: s.id } }" class="flex flex-col gap-0.5">
               <span class="font-semibold">{{ s.name }}</span>
+              <StarRating kind="set" :id="s.id" readonly />
               <span class="hint">{{ s.groups.map((g) => g.title).join(' · ') }}</span>
             </RouterLink>
             <AddToMenu :set="s" small />

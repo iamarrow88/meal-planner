@@ -114,18 +114,30 @@ function optionScore(option: SetOption, products: string[], recipes: Map<string,
   return own.length * 3 + (all.length - own.length);
 }
 
+/** Что известно о вкусах: избранное и оценки (1–5). Без оценки — нейтральные 3 звезды. */
+export interface Preferences {
+  isFavorite: (setId: string) => boolean;
+  setRating?: (setId: string) => number | undefined;
+  recipeRating?: (recipeId: string) => number | undefined;
+}
+
+export const NEUTRAL = 3;
+const optionRating = (option: SetOption, prefs: Preferences) =>
+  (option.recipe && prefs.recipeRating?.(option.recipe)) || NEUTRAL;
+
 /**
- * Выбор вариантов под продукты: в каждой группе — варианты, где их больше всего.
- * Если подходящего варианта нет, группа остаётся пустой, и её нужно выбрать вручную.
+ * Выбор вариантов под продукты: в каждой группе — варианты, где их больше всего,
+ * при равенстве — с рецептом, оценённым выше. Если подходящего варианта нет, группа остаётся пустой,
+ * и её нужно выбрать вручную.
  */
-function autoPicks(set: MealSet, products: string[], recipes: Map<string, Recipe>) {
+function autoPicks(set: MealSet, products: string[], recipes: Map<string, Recipe>, prefs: Preferences) {
   const picks: MealChoice['picks'] = {};
   let score = 0;
   for (const group of set.groups) {
     const ranked = group.options
       .map((option) => ({ option, score: optionScore(option, products, recipes) }))
       .filter((r) => r.score > 0)
-      .sort((a, b) => b.score - a.score);
+      .sort((a, b) => b.score - a.score || optionRating(b.option, prefs) - optionRating(a.option, prefs));
     // группа без выбора входит в сет целиком — её совпадения тоже идут в оценку сета
     const chosen = group.pick ? ranked.slice(0, group.pick) : ranked;
     if (group.pick && chosen.length) picks[group.id] = chosen.map((r) => r.option.id);
@@ -136,14 +148,14 @@ function autoPicks(set: MealSet, products: string[], recipes: Map<string, Recipe
 
 /**
  * Сеты, где встречается больше всего выбранных продуктов, — `limit` штук начиная с `offset`
- * (кнопка «Другие» листает дальше). При равенстве выше те, где продукты указаны прямо в сете,
- * а не только в рецептах, затем избранные. `total` — сколько подходящих сетов всего.
+ * (кнопка «Другие» листает дальше). При равенстве выше сеты с более высокой оценкой, затем те, где продукты
+ * указаны прямо в сете, а не только в рецептах, затем избранные. `total` — сколько подходящих сетов всего.
  */
 export function suggestSets(
   sets: MealSet[],
   products: string[],
   recipes: Map<string, Recipe>,
-  isFavorite: (setId: string) => boolean,
+  prefs: Preferences,
   limit = 3,
   offset = 0,
 ): { items: Suggestion[]; total: number } {
@@ -151,12 +163,13 @@ export function suggestSets(
   const ranked = sets
     .map((set) => ({ set, products: matched(setKeys(set, recipes), products) }))
     .filter((s) => s.products.length)
-    .map((s) => ({ ...s, auto: autoPicks(s.set, s.products, recipes) }))
+    .map((s) => ({ ...s, auto: autoPicks(s.set, s.products, recipes, prefs), stars: prefs.setRating?.(s.set.id) ?? NEUTRAL }))
     .sort(
       (a, b) =>
         b.products.length - a.products.length ||
+        b.stars - a.stars ||
         b.auto.score - a.auto.score ||
-        Number(isFavorite(b.set.id)) - Number(isFavorite(a.set.id)) ||
+        Number(prefs.isFavorite(b.set.id)) - Number(prefs.isFavorite(a.set.id)) ||
         a.set.name.localeCompare(b.set.name, 'ru', { numeric: true }),
     );
   // «что ещё нужно» считаем только для показанных сетов

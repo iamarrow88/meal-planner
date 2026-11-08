@@ -20,8 +20,19 @@ function seed(date: string) {
 /**
  * Все советы по порядку, начиная с сегодняшнего: «давно не ели» и «не пробовали» чередуются.
  * Учитываются рецепты, которые выбраны в сетах меню (сам сет или выбранный в нём вариант).
+ *
+ * Оценки (`ratingOf`, 1–5): рецепты с 1–2 звёздами не предлагаются; среди «давно не ели» первыми идут
+ * оценённые выше (без оценки — как 3 звезды), среди «не пробовали» — сначала оценённые на 4–5.
  */
-export function dailyTips(days: DayPlan[], sets: Map<string, MealSet>, recipes: Recipe[], today: string): Tip[] {
+export function dailyTips(
+  days: DayPlan[],
+  sets: Map<string, MealSet>,
+  recipes: Recipe[],
+  today: string,
+  ratingOf: (recipeId: string) => number | undefined = () => undefined,
+): Tip[] {
+  const stars = (r: Recipe) => ratingOf(r.id) ?? 3;
+  const liked = recipes.filter((r) => stars(r) > 2);
   const last = new Map<string, string>(); // рецепт → последний прошедший день, когда он был в меню
   const planned = new Set<string>(); // рецепты, которые были или будут в меню
   const upcoming = new Set<string>(); // уже стоят в меню после сегодняшнего дня
@@ -54,21 +65,23 @@ export function dailyTips(days: DayPlan[], sets: Map<string, MealSet>, recipes: 
   }
 
   const limit = addDays(today, -FORGOTTEN_AFTER);
-  const forgotten: Tip[] = recipes
+  const forgotten: Tip[] = liked
     .filter((r) => {
       const d = last.get(r.id);
       // уже стоит в меню на будущее — напоминать не о чем
       return !!d && d <= limit && !upcoming.has(r.id);
     })
-    .sort((a, b) => last.get(a.id)!.localeCompare(last.get(b.id)!))
+    .sort((a, b) => stars(b) - stars(a) || last.get(a.id)!.localeCompare(last.get(b.id)!))
     .map((recipe) => ({ kind: 'forgotten', recipe, last: last.get(recipe.id)!, sets: setsOf.get(recipe.id) ?? [] }));
-  const fresh: Tip[] = recipes
-    .filter((r) => !planned.has(r.id))
-    .map((recipe) => ({ kind: 'new', recipe, sets: setsOf.get(recipe.id) ?? [] }));
+  const tip = (recipe: Recipe): Tip => ({ kind: 'new', recipe, sets: setsOf.get(recipe.id) ?? [] });
+  const untried = liked.filter((r) => !planned.has(r.id));
+  const wanted = untried.filter((r) => ratingOf(r.id)).sort((a, b) => stars(b) - stars(a)); // оценены, но не было в меню
+  const fresh = untried.filter((r) => !ratingOf(r.id));
 
-  // «давно не ели» — от самых забытых; «не пробовали» — перемешаны по дате, чтобы каждый день был новый рецепт
+  // «давно не ели» — от лучших и самых забытых; «не пробовали» — оценённые, потом перемешанные по дате,
+  // чтобы каждый день был новый рецепт
   const shift = fresh.length ? seed(today) % fresh.length : 0;
-  const rotated = [...fresh.slice(shift), ...fresh.slice(0, shift)];
+  const rotated = [...wanted, ...fresh.slice(shift), ...fresh.slice(0, shift)].map(tip);
   // каждый второй день начинаем с нового рецепта
   const [first, second] = seed(today) % 2 ? [rotated, forgotten] : [forgotten, rotated];
   const tips: Tip[] = [];

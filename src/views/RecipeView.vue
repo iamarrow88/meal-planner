@@ -2,6 +2,7 @@
 import { marked } from 'marked';
 import { computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import StarRating from '@/components/StarRating.vue';
 import { MEAL_LABELS } from '@/lib/types';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
@@ -23,7 +24,7 @@ const backLabel = computed(() => {
   const to = previous.value;
   if (!to) return '';
   if (to.name === 'set') return sets.byId.get(String(to.params.id))?.name ?? 'Сет';
-  const labels: Record<string, string> = { shopping: 'Список покупок', menu: 'Меню', recipes: 'Все рецепты' };
+  const labels: Record<string, string> = { shopping: 'Список покупок', menu: 'Меню', recipes: 'Все рецепты', home: 'Главная', sets: 'Все сеты' };
   return labels[String(to.name)] ?? 'Назад';
 });
 
@@ -43,6 +44,7 @@ const html = computed(() => (recipe.value ? (marked.parse(recipe.value.body) as 
         <template v-if="recipe.time"> · {{ recipe.time }}</template>
       </div>
       <h2 class="mt-1.5 text-[22px] font-bold">{{ recipe.title }}</h2>
+      <StarRating kind="recipe" :id="recipe.id" class="mt-1.5" />
       <div class="markdown" v-html="html" />
       <p v-if="!recipe.ingredients.length" class="text-[13px] text-warn">
         Ингредиенты не найдены — рецепт не попадёт в список покупок.

@@ -82,6 +82,12 @@ export interface SavedMenu {
   createdAt: number;
 }
 
+/** Оценка сета или рецепта от 1 до 5; id — «set:<id сета>» или «recipe:<id рецепта>». */
+export interface Rating {
+  id: string;
+  stars: number;
+}
+
 export interface DayPlan {
   date: string; // YYYY-MM-DD
   meals: Partial<Record<Meal, MealChoice>>;
