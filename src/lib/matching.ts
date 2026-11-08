@@ -1,4 +1,4 @@
-import { displayName, isPantryStaple, isSpice, productBase, splitMarks } from './shopping';
+import { displayName, isPantryStaple, isSpice, productBase, splitMarks, stem } from './shopping';
 import type { Ingredient, MealChoice, MealSet, Recipe, SetOption } from './types';
 
 /** Продукт для подбора: ключ — слова названия без пометок, name — как показать. */
@@ -13,8 +13,6 @@ function optionIngredients(option: SetOption, recipes: Map<string, Recipe>): Ing
   return [...option.items, ...(recipe?.ingredients ?? [])];
 }
 
-/** Слово без окончания: «яйца» и «яйцо», «помидоры» и «помидор», «куриное» и «куриный» совпадают. */
-const stem = (word: string) => (word.length > 3 ? word.replace(/[аеиоуыэюяйь]+$/, '') : word);
 
 /** Ключ продукта для подбора: слова без пометок и окончаний. */
 const productKey = (name: string) => productBase(name).split(' ').map(stem).join(' ');

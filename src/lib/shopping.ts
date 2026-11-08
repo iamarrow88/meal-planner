@@ -1,4 +1,5 @@
 import { categorize, type Category } from './categories';
+import { baseUnit, gramsPer, presentAmount, presentGrams, toBase, WEIGHTS, type Weights } from './units';
 import type { DayPlan, Ingredient, MealChoice, MealSet, Recipe, SetGroup, SetOption } from './types';
 
 export interface ShoppingLine {
@@ -39,6 +40,15 @@ const productKey = (name: string) => tidy(name).toLowerCase().replace(/ё/g, 'е
 
 /** Слова названия без скобок и в алфавитном порядке: «Гречка (отварная)» = «отварная гречка». */
 const wordsKey = (name: string) => productKey(name.replace(/[()]/g, ' ')).split(' ').sort().join(' ');
+
+/** Слово без окончания: «яйца» и «яйцо», «помидоры» и «помидор», «куриное» и «куриный» совпадают. */
+export const stem = (word: string) => (word.length > 3 ? word.replace(/[аеиоуыэюяйь]+$/, '') : word);
+
+/** Строка списка покупок: слова без окончаний, так «Яйцо 2 шт» и «Яйца 1 шт» складываются. */
+const lineKey = (base: string) => wordsKey(base).split(' ').map(stem).sort().join(' ');
+
+/** Примерные веса продуктов (units.ts) по ключу строки. */
+const WEIGHT_BY_KEY = new Map(Object.entries(WEIGHTS).map(([name, w]) => [lineKey(name), w]));
 
 /** Их не покупают: вода, бульон и уже готовые крупы, которые в рецептах указаны в отварном виде. */
 const NOT_BOUGHT = new Set(
@@ -91,10 +101,16 @@ export const displayName = (name: string) => {
  * Пометки продукта — текст в скобках и жирность: «Молоко 2,5%» → «молоко» + «2,5%».
  * По основе одинаковые продукты собираются в одну строку: «Молоко (1,5%/2,5%)».
  */
+/** Пометки, которые делают продукт другим, а не вариантом того же: консервы, заморозка и т.п. остаются в названии. */
+const OTHER_PRODUCT = /собственном соку|консерв|заморож|маринован|солен|копчен|вялен/i;
+
 export function splitMarks(name: string): { base: string; marks: string[] } {
   const marks: string[] = [];
   const base = tidy(name)
-    .replace(/\s*\(([^()]*)\)?/g, (_, m: string) => (marks.push(tidy(m)), ' '))
+    .replace(/\s*\(([^()]*)\)?/g, (whole: string, m: string) =>
+      // «(можно заменить на тунец в собственном соку)», «(запеченная или копченая)» — подсказка, а не другой продукт
+      OTHER_PRODUCT.test(m) && !/(^|\s)(или|можно)\s/i.test(m) ? whole : (marks.push(tidy(m)), ' '),
+    )
     .replace(/\s*\d+(?:[.,]\d+)?%/g, (m) => (marks.push(m.trim()), ' '));
   return { base: tidy(base), marks: marks.filter(Boolean) };
 }
@@ -155,6 +171,7 @@ export function buildShoppingList(
   const wholeRecipe = new Set<string>();
 
   const marks = new Map<string, string[]>(); // ключ строки → пометки всех вариантов продукта
+  const units = new Map<string, Set<string>>(); // ключ строки → в каких единицах продукт встретился
   const spices = new Map<string, string>(); // ключ → как показать
 
   const addDish = (line: ShoppingLine, dish: Dish) => {
@@ -184,7 +201,8 @@ export function buildShoppingList(
     }
 
     const { base, marks: own } = splitMarks(ing.name);
-    const key = `${wordsKey(base)}|${ing.amount == null ? '' : ing.unit}`;
+    // кг и г, л, мл и ложки складываются в одну строку: в ключе — единица, к которой они приводятся
+    const key = `${lineKey(base)}|${ing.amount == null ? '' : baseUnit(ing.unit)}`;
     const line = map.get(key) ?? {
       key,
       name: displayName(base),
@@ -197,8 +215,11 @@ export function buildShoppingList(
     const known = marks.get(key) ?? [];
     for (const m of own) if (!known.some((k) => productKey(k) === productKey(m))) known.push(m);
     marks.set(key, known);
-    if (ing.amount != null) line.amount = (line.amount ?? 0) + ing.amount * factor;
-    else if (ing.note && !line.notes.includes(ing.note)) line.notes.push(ing.note);
+    if (ing.amount != null) {
+      // пока считаем в граммах или миллилитрах; в чём показать — решаем в конце
+      line.amount = (line.amount ?? 0) + toBase(ing.amount * factor, ing.unit);
+      units.set(key, (units.get(key) ?? new Set()).add(ing.unit));
+    } else if (ing.note && !line.notes.includes(ing.note)) line.notes.push(ing.note);
     addDish(line, dish);
     map.set(key, line);
   };
@@ -226,7 +247,11 @@ export function buildShoppingList(
     }
   }
 
+  mergeByWeight(map, marks, units);
+
   for (const line of map.values()) {
+    const used = units.get(line.key);
+    if (line.amount != null && used) Object.assign(line, presentAmount(line.amount, used));
     const m = marks.get(line.key);
     if (m?.length) line.name += ` (${joinMarks(m)})`;
     if (line.items) line.items = [...spices.values()].sort(byNumber);
@@ -237,4 +262,39 @@ export function buildShoppingList(
     noIngredients: [...noIngredients],
     wholeRecipe: [...wholeRecipe],
   };
+}
+
+/**
+ * Один продукт в граммах, штуках и ложках — одна строка, если для него известен примерный вес:
+ * «Яйцо 2 шт» и «Яйцо 100 г» → «Яйцо 4 шт». Строки, которые не пересчитать, остаются как были.
+ */
+function mergeByWeight(map: Map<string, ShoppingLine>, marks: Map<string, string[]>, units: Map<string, Set<string>>) {
+  const groups = new Map<string, { w: Weights; lines: { line: ShoppingLine; grams: number }[] }>();
+  for (const line of map.values()) {
+    if (line.amount == null || line.items) continue;
+    const sep = line.key.lastIndexOf('|');
+    const product = line.key.slice(0, sep);
+    const w = WEIGHT_BY_KEY.get(product);
+    const per = w && gramsPer(line.key.slice(sep + 1), w);
+    if (!w || per == null) continue;
+    const g = groups.get(product) ?? { w, lines: [] };
+    g.lines.push({ line, grams: line.amount * per });
+    groups.set(product, g);
+  }
+  for (const [product, { w, lines }] of groups) {
+    if (lines.length < 2) continue;
+    // ключ не зависит от того, какая из строк встретилась первой, — отметка «куплено» не прыгает
+    const key = `${product}|≈`;
+    const merged: ShoppingLine = { ...lines[0].line, key, notes: [], dishes: [] };
+    Object.assign(merged, presentGrams(lines.reduce((sum, l) => sum + l.grams, 0), w));
+    const allMarks: string[] = [];
+    for (const { line } of lines) {
+      for (const d of line.dishes) if (!merged.dishes.some((x) => x.title === d.title)) merged.dishes.push(d);
+      for (const m of marks.get(line.key) ?? []) if (!allMarks.some((k) => productKey(k) === productKey(m))) allMarks.push(m);
+      map.delete(line.key);
+    }
+    marks.set(key, allMarks);
+    units.delete(key); // сумма уже в нужной единице
+    map.set(key, merged);
+  }
 }

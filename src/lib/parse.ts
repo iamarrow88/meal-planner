@@ -37,10 +37,12 @@ export function splitTitle(fileName: string): { title: string; time?: string } {
 export function normalizeUnit(unit: string): string {
   const u = unit.trim().replace(/[,;\s]+$/, '').toLowerCase();
   if (/^(г|гр|грамм\S*)\.?$/.test(u)) return 'г';
+  if (/^(кг|килограмм\S*)\.?$/.test(u)) return 'кг';
+  if (/^стакан\S*$/.test(u)) return 'стакан';
   if (/^мл\.?$/.test(u)) return 'мл';
   if (/^л\.?$/.test(u)) return 'л';
   if (/^шт(\.|ук\S*)?$/.test(u)) return 'шт';
-  if (/^(ст|стол)\.?\s*л\.?$|^столов\S+ ложк\S*$/.test(u)) return 'ст. л.';
+  if (/^(ст|стол)\.?\s*л\.?$|^(ст\.?|столов\S+) ложк\S*$/.test(u)) return 'ст. л.';
   if (/^ч\.?\s*л\.?$|^чайн\S+ ложк\S*$/.test(u)) return 'ч. л.';
   if (/^зуб(ч|чик\S*)?\.?$/.test(u)) return 'зубчик';
   return u;
