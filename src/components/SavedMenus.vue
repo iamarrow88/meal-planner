@@ -53,15 +53,18 @@ const describe = (m: SavedMenu) => {
   return `${isWeek(m) ? 'Неделя' : 'День'} · ${dishes}`;
 };
 
-// дневное меню можно поставить на любой день открытого периода
+// меню начинается с любого дня открытого периода: неделя со среды займёт среду — вторник следующей недели
 const targets = ref<Record<string, string>>({});
-const targetFor = (m: SavedMenu) => (isWeek(m) ? plan.start : (targets.value[m.id] ?? plan.start));
+const targetFor = (m: SavedMenu) => {
+  const picked = targets.value[m.id];
+  return picked && plan.dates.includes(picked) ? picked : plan.start;
+};
 
 async function apply(m: SavedMenu) {
   const start = targetFor(m);
   if (isWeek(m) && plan.length !== 7) plan.length = 7;
   const busy = (await Promise.all(m.days.map((_, i) => plan.getDay(addDays(start, i))))).some(filled);
-  const where = isWeek(m) ? `неделю с ${formatDay(start)}` : formatDay(start);
+  const where = isWeek(m) ? `${formatDay(start)} — ${formatDay(addDays(start, m.days.length - 1))}` : formatDay(start);
   if (busy && !confirm(`На ${where} уже выбраны блюда. Заменить их меню «${m.name}»?`)) return;
   const { skipped } = await store.apply(m, start);
   plan.showDate(start);
@@ -120,16 +123,17 @@ async function remove(m: SavedMenu) {
           <button class="link text-[13px]" @click="remove(m)">Удалить</button>
         </div>
         <div class="flex flex-wrap items-center gap-2">
+          <span v-if="isWeek(m) && plan.length === 7" class="hint">С</span>
           <select
-            v-if="!isWeek(m)"
+            v-if="plan.length === 7 || !isWeek(m)"
             :value="targetFor(m)"
-            aria-label="На какой день"
+            :aria-label="isWeek(m) ? 'С какого дня' : 'На какой день'"
             @change="targets[m.id] = ($event.target as HTMLSelectElement).value"
           >
             <option v-for="date in plan.dates" :key="date" :value="date">{{ dayLabel(date) }}</option>
           </select>
           <button class="btn btn-primary" @click="apply(m)">
-            {{ isWeek(m) ? `Подставить с ${formatDay(plan.start)}` : 'Подставить' }}
+            {{ isWeek(m) && plan.length !== 7 ? `Подставить неделю с ${formatDay(plan.start)}` : 'Подставить' }}
           </button>
         </div>
       </div>
