@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import AddToMenu from '@/components/AddToMenu.vue';
 import SavedMenus from '@/components/SavedMenus.vue';
 import { addDays, formatDay, today } from '@/lib/dates';
 import { db } from '@/lib/db';
@@ -80,15 +81,13 @@ const liked = computed(() =>
       </p>
       <div v-for="g in liked" :key="g.meal" class="flex flex-col gap-1.5">
         <span class="hint">{{ MEAL_LABELS[g.meal] }}</span>
-        <RouterLink
-          v-for="s in g.sets"
-          :key="s.id"
-          :to="{ name: 'set', params: { id: s.id } }"
-          class="card flex flex-col gap-0.5 py-3"
-        >
-          <span class="font-semibold">{{ s.name }}</span>
-          <span class="hint">{{ s.groups.map((gr) => gr.title).join(' · ') }}</span>
-        </RouterLink>
+        <div v-for="s in g.sets" :key="s.id" class="card flex flex-col gap-1 py-3">
+          <RouterLink :to="{ name: 'set', params: { id: s.id } }" class="flex flex-col gap-0.5">
+            <span class="font-semibold">{{ s.name }}</span>
+            <span class="hint">{{ s.groups.map((gr) => gr.title).join(' · ') }}</span>
+          </RouterLink>
+          <AddToMenu :set="s" small />
+        </div>
       </div>
     </div>
 

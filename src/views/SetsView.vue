@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
+import AddToMenu from '@/components/AddToMenu.vue';
 import { MEALS, MEAL_LABELS, type Meal } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useSetsStore } from '@/stores/sets';
@@ -36,11 +37,14 @@ const visible = computed(() => {
       </div>
       <p v-if="!visible.length" class="py-6 text-center text-muted">Ничего не найдено</p>
       <ul v-else class="flex flex-col gap-1.5">
-        <li v-for="s in visible" :key="s.id" class="card flex items-center gap-2 py-3">
-          <RouterLink :to="{ name: 'set', params: { id: s.id } }" class="flex min-w-0 flex-1 flex-col gap-0.5">
-            <span class="font-semibold">{{ s.name }}</span>
-            <span class="hint">{{ s.groups.map((g) => g.title).join(' · ') }}</span>
-          </RouterLink>
+        <li v-for="s in visible" :key="s.id" class="card flex items-start gap-2 py-3">
+          <div class="flex min-w-0 flex-1 flex-col gap-1">
+            <RouterLink :to="{ name: 'set', params: { id: s.id } }" class="flex flex-col gap-0.5">
+              <span class="font-semibold">{{ s.name }}</span>
+              <span class="hint">{{ s.groups.map((g) => g.title).join(' · ') }}</span>
+            </RouterLink>
+            <AddToMenu :set="s" small />
+          </div>
           <button
             class="shrink-0 cursor-pointer px-1 text-xl text-accent"
             :aria-label="favorites.has(s.id) ? 'Убрать из избранного' : 'Добавить в избранное'"

@@ -5,12 +5,14 @@ import { missingProducts, suggestSets } from '@/lib/matching';
 import { MEAL_LABELS, type Meal, type MealChoice, type MealSet, type SetGroup } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
 import { useRecipesStore } from '@/stores/recipes';
+import { useSetsStore } from '@/stores/sets';
 
 const props = defineProps<{ meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[] }>();
 const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 
 const favorites = useFavoritesStore();
 const recipes = useRecipesStore();
+const allSets = useSetsStore();
 
 const PAGE = 3;
 
@@ -41,7 +43,9 @@ function pickSuggestion(choice: MealChoice) {
   emit('change', choice);
 }
 
-const set = computed(() => props.sets.find((s) => s.id === props.choice?.setId));
+// сет можно поставить и на другой приём пищи («Добавить в меню»), поэтому ищем среди всех
+const set = computed(() => (props.choice ? allSets.byId.get(props.choice.setId) : undefined));
+const foreign = computed(() => set.value && set.value.meal !== props.meal);
 
 // что докупить для выбранного сета — по тем вариантам, что выбраны сейчас, а не по подобранным автоматически
 const missingNow = computed(() =>
@@ -79,6 +83,7 @@ function pickOptions(group: SetGroup, picked: string[]) {
       <span class="w-[76px] shrink-0 font-semibold">{{ MEAL_LABELS[meal] }}</span>
       <select class="min-w-0 flex-1" :value="choice?.setId ?? ''" @change="pickSet">
         <option value="">— не выбрано —</option>
+        <option v-if="foreign" :value="set!.id">{{ set!.name }} ({{ MEAL_LABELS[set!.meal].toLowerCase() }})</option>
         <optgroup v-for="g in setGroups" :key="g.label" :label="g.label">
           <option v-for="s in g.sets" :key="s.id" :value="s.id">{{ s.name }}</option>
         </optgroup>
