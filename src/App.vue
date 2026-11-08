@@ -14,6 +14,7 @@ const activeTab = computed(() => {
 });
 
 const tabs = [
+  { to: '/home', label: 'Главная', icon: '🏠' },
   { to: '/menu', label: 'Меню', icon: '📅' },
   { to: '/shopping', label: 'Покупки', icon: '🛒' },
   { to: '/sets', label: 'Сеты', icon: '🍱' },

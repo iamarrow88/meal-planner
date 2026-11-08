@@ -5,10 +5,13 @@ import type { SavedMenu } from '@/lib/types';
 import { dishCount, useMenusStore } from '@/stores/menus';
 import { usePlanStore } from '@/stores/plan';
 
+/** listOnly — только список меню (для главной), без кнопок «Сохранить» и «Мои меню». */
+const props = defineProps<{ listOnly?: boolean }>();
+
 const plan = usePlanStore();
 const store = useMenusStore();
 
-const mode = ref<'closed' | 'save' | 'list'>('closed');
+const mode = ref<'closed' | 'save' | 'list'>(props.listOnly ? 'list' : 'closed');
 const message = ref('');
 const toggle = (m: 'save' | 'list') => {
   mode.value = mode.value === m ? 'closed' : m;
@@ -81,7 +84,7 @@ async function remove(m: SavedMenu) {
 
 <template>
   <div class="flex flex-col gap-2">
-    <div class="flex flex-wrap gap-2">
+    <div v-if="!listOnly" class="flex flex-wrap gap-2">
       <button class="chip" :class="{ 'chip-on': mode === 'save' }" :disabled="!hasMeals" @click="toggle('save')">
         💾 Сохранить меню
       </button>
@@ -108,7 +111,10 @@ async function remove(m: SavedMenu) {
       </div>
     </form>
 
-    <p v-if="message" class="hint">{{ message }}</p>
+    <p v-if="message" class="hint">
+      {{ message }}
+      <RouterLink v-if="listOnly" to="/menu" class="text-accent">Открыть меню</RouterLink>
+    </p>
 
     <div v-if="mode === 'list'" class="flex flex-col gap-2">
       <p v-if="!store.menus.length" class="hint">
