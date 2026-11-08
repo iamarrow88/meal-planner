@@ -1,14 +1,41 @@
 import { defineStore } from 'pinia';
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { addDays, range, today } from '@/lib/dates';
 import { db, markDeleted, save, type SyncMeta } from '@/lib/db';
 import { useLiveQuery } from '@/lib/live';
 import type { DayPlan, Meal, MealChoice } from '@/lib/types';
 
 /** Выбранный период (общий для меню и списка покупок) и дни меню в нём. */
+const PERIOD_KEY = 'period';
+
+/**
+ * Период запоминается между запусками, пока он не закончился: неделя «с завтра» останется
+ * неделей с той же даты и завтра. Если последний её день уже прошёл, открывается сегодняшний день.
+ */
+function loadPeriod(): { start: string; length: 1 | 7 } {
+  try {
+    const saved = JSON.parse(localStorage.getItem(PERIOD_KEY) ?? 'null');
+    const length = saved?.length === 1 ? 1 : 7;
+    const valid = typeof saved?.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(saved.start);
+    if (valid && addDays(saved.start, length - 1) >= today()) return { start: saved.start, length };
+    return { start: today(), length };
+  } catch {
+    return { start: today(), length: 7 };
+  }
+}
+
 export const usePlanStore = defineStore('plan', () => {
-  const start = ref(today());
-  const length = ref<1 | 7>(7);
+  const saved = loadPeriod();
+  const start = ref(saved.start);
+  const length = ref<1 | 7>(saved.length);
+
+  watch([start, length], () => {
+    try {
+      localStorage.setItem(PERIOD_KEY, JSON.stringify({ start: start.value, length: length.value }));
+    } catch {
+      /* хранилище недоступно — период просто не запомнится */
+    }
+  });
 
   const dates = computed(() => range(start.value, length.value));
   const end = computed(() => addDays(start.value, length.value - 1));

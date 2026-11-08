@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatDay, today } from '@/lib/dates';
+import { addDays, formatDay, today } from '@/lib/dates';
 import { usePlanStore } from '@/stores/plan';
 
 const plan = usePlanStore();
@@ -24,10 +24,15 @@ function onDate(e: Event) {
       </button>
     </div>
     <div class="flex flex-wrap items-center gap-1.5">
+      <span class="hint">{{ plan.length === 7 ? 'Неделя с' : 'День' }}</span>
       <button class="size-9 cursor-pointer rounded-lg border border-line bg-surface text-xl leading-none" aria-label="Назад" @click="plan.shift(-1)">‹</button>
-      <input type="date" :value="plan.start" @change="onDate" />
+      <!-- любая дата становится первым днём недели: можно начать неделю с завтра или с понедельника -->
+      <input type="date" :value="plan.start" aria-label="Первый день" @change="onDate" />
       <button class="size-9 cursor-pointer rounded-lg border border-line bg-surface text-xl leading-none" aria-label="Вперёд" @click="plan.shift(1)">›</button>
-      <button class="link" @click="plan.start = today()">Сегодня</button>
+      <button class="chip py-1" :class="{ 'chip-on': plan.start === today() }" @click="plan.start = today()">Сегодня</button>
+      <button class="chip py-1" :class="{ 'chip-on': plan.start === addDays(today(), 1) }" @click="plan.start = addDays(today(), 1)">
+        Завтра
+      </button>
     </div>
     <div v-if="plan.length === 7" class="hint">{{ formatDay(plan.start) }} — {{ formatDay(plan.end) }}</div>
   </div>
