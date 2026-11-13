@@ -8,7 +8,8 @@ import { useRatingsStore } from '@/stores/ratings';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
 
-const props = defineProps<{ meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[] }>();
+/** start — номер дня в периоде: каждый день начинает предложения с других сетов, чтобы неделя не повторялась. */
+const props = defineProps<{ meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[]; start?: number }>();
 const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 
 const favorites = useFavoritesStore();
@@ -20,7 +21,12 @@ const allSets = useSetsStore();
 const PAGE = 3;
 
 // по три сета, где больше всего продуктов, которые есть дома; «Другие» показывают следующие три
-const offset = ref(0);
+const firstOffset = () => {
+  const total = suggestSets(props.sets, props.products ?? [], recipes.byId, prefs, 0).total;
+  const pages = Math.ceil(total / PAGE);
+  return pages ? ((props.start ?? 0) % pages) * PAGE : 0;
+};
+const offset = ref(firstOffset());
 const suggestions = computed(() =>
   suggestSets(props.sets, props.products ?? [], recipes.byId, prefs, PAGE, offset.value),
 );
@@ -32,9 +38,10 @@ const showOthers = () => {
 };
 
 // другой набор продуктов — другие сеты, показываем лучшие с начала
+// и когда загрузились сеты и рецепты: до этого подходящих сетов ещё не видно
 watch(
-  () => (props.products ?? []).join(),
-  () => (offset.value = 0),
+  () => `${(props.products ?? []).join()}|${props.sets.length}|${recipes.byId.size}|${props.start}`,
+  () => (offset.value = firstOffset()),
 );
 
 // когда сет выбран, предложения прячутся; «Подобрать другой» открывает их снова

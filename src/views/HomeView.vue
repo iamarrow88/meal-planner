@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import AddToMenu from '@/components/AddToMenu.vue';
+import ProductPicker from '@/components/ProductPicker.vue';
 import SavedMenus from '@/components/SavedMenus.vue';
 import StarRating from '@/components/StarRating.vue';
 import { addDays, formatDay, today } from '@/lib/dates';
@@ -9,6 +10,7 @@ import { useLiveQuery } from '@/lib/live';
 import { dailyTips } from '@/lib/tips';
 import { MEALS, MEAL_LABELS, type DayPlan } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
+import { usePantryStore } from '@/stores/pantry';
 import { useRatingsStore } from '@/stores/ratings';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
@@ -16,6 +18,7 @@ import { useSetsStore } from '@/stores/sets';
 const recipes = useRecipesStore();
 const sets = useSetsStore();
 const favorites = useFavoritesStore();
+const pantry = usePantryStore();
 const ratings = useRatingsStore();
 
 // для совета нужна вся история меню, а не только открытый период
@@ -81,6 +84,16 @@ const liked = computed(() =>
         </template>
       </p>
       <button v-if="tips.length > 1" class="link self-start text-[14px]" @click="index++">Другое предложение ›</button>
+    </div>
+
+    <div v-if="pantry.catalog.length" class="flex flex-col gap-2">
+      <h2 class="text-lg font-semibold">🧺 Продукты дома</h2>
+      <p class="hint">
+        Выберите, что есть дома, — в меню под каждым приёмом пищи появятся подходящие сеты на все дни.
+        Список сохраняется; когда продукты закончатся или появятся новые, просто поправьте его.
+      </p>
+      <ProductPicker :catalog="pantry.catalog" :selected="pantry.items" @change="pantry.set" />
+      <RouterLink v-if="pantry.items.length" to="/menu" class="link self-start text-[14px]">Подобрать сеты в меню ›</RouterLink>
     </div>
 
     <div class="flex flex-col gap-2">
