@@ -59,14 +59,20 @@ type SortMode = 'category' | 'alphabet';
 const sort = ref<SortMode>(load('shoppingSort', 'category'));
 watch(sort, (mode) => store('shoppingSort', mode));
 
-/** По алфавиту — один общий список; по категориям — отделы в порядке CATEGORIES, внутри по алфавиту. */
-const sections = computed(() =>
-  sort.value === 'alphabet'
-    ? [{ title: '', lines: list.value.lines }]
-    : CATEGORIES.map((title) => ({ title, lines: list.value.lines.filter((l) => l.category === title) })).filter(
-        (s) => s.lines.length,
-      ),
-);
+/**
+ * По алфавиту — один общий список; по категориям — отделы в порядке CATEGORIES, внутри по алфавиту.
+ * Купленное уходит в отдельный раздел в самом конце, чтобы некупленное шло подряд.
+ */
+const sections = computed(() => {
+  const isBought = (l: { key: string }) => checked.value.includes(l.key);
+  const toBuy = list.value.lines.filter((l) => !isBought(l));
+  const bought = list.value.lines.filter(isBought);
+  const main =
+    sort.value === 'alphabet'
+      ? [{ title: '', lines: toBuy }]
+      : CATEGORIES.map((title) => ({ title, lines: toBuy.filter((l) => l.category === title) }));
+  return [...main, { title: 'Куплено', lines: bought }].filter((s) => s.lines.length);
+});
 
 async function copy() {
   const text = sections.value
