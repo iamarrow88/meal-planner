@@ -124,6 +124,15 @@ describe('sharedIngredients', () => {
     expect(line.parts.map((p) => p.amount)).toEqual(['150 г', '1 шт']);
   });
 
+  it('кг и г, л и мл, шт и шт. складываются', () => {
+    const lines = sharedIngredients([
+      { recipe: r('a', 'А', [ing('Мука', 0.5, 'кг'), ing('Молоко', 1, 'л'), ing('Яйца', 1, 'шт.')]), factor: 1 },
+      { recipe: r('b', 'Б', [ing('Мука', 200, 'г'), ing('Молоко', 250, 'мл'), ing('Яйца', 2, 'шт')]), factor: 1 },
+    ]);
+    expect(Object.fromEntries(lines.map((l) => [l.name, l.total]))).toEqual({ Мука: '700 г', Молоко: '1250 мл', Яйца: '3 шт' });
+    expect(lines.find((l) => l.name === 'Мука')!.parts.map((p) => p.amount)).toEqual(['500 г', '200 г']);
+  });
+
   it('продукт из одного рецепта не показывается', () => {
     expect(sharedIngredients([{ recipe: r('a', 'А', [ing('Лук', 100, 'г'), ing('Лук', 50, 'г')]), factor: 1 }])).toEqual([]);
   });

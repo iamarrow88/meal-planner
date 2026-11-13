@@ -1,4 +1,5 @@
 import type { Coverage, Need } from './leftovers';
+import { normalizeUnit } from './parse';
 import { formatQuantity } from './portions';
 import { displayName, isPantryStaple, productBase, selectedOptions } from './shopping';
 import { MEALS, type DayPlan, type Meal, type MealSet, type Recipe } from './types';
@@ -89,7 +90,13 @@ export interface SharedLine {
 type Amounts = Map<string, number>; // единица → количество
 
 const join = (amounts: Amounts) => [...amounts].map(([unit, n]) => formatQuantity(n, unit)).join(' + ');
-const addTo = (amounts: Amounts, unit: string, n: number) => amounts.set(unit, (amounts.get(unit) ?? 0) + n);
+/** кг и л переводятся в г и мл, «шт.» — в «шт»: так одно и то же складывается. */
+const BASE: Record<string, [string, number]> = { кг: ['г', 1000], л: ['мл', 1000] };
+const addTo = (amounts: Amounts, rawUnit: string, n: number) => {
+  const unit = normalizeUnit(rawUnit);
+  const [base, k] = BASE[unit] ?? [unit, 1];
+  amounts.set(base, (amounts.get(base) ?? 0) + n * k);
+};
 
 /** Продукты (кроме соли, воды и специй), которые встречаются в двух и больше рецептах, с количествами на нужные порции (factor). */
 export function sharedIngredients(items: { recipe: Recipe; factor: number }[]): SharedLine[] {
