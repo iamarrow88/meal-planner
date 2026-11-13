@@ -1,7 +1,7 @@
 import { createClient, type User } from '@supabase/supabase-js';
 import { defineStore } from 'pinia';
 import { computed, ref } from 'vue';
-import { db, KINDS, primaryKey, setLocalChangeListener, stripMeta, type Kind, type SyncMeta } from '@/lib/db';
+import { allTables, db, KINDS, primaryKey, setLocalChangeListener, stripMeta, type Kind, type SyncMeta } from '@/lib/db';
 
 // нужен адрес проекта (https://….supabase.co); если вставили адрес REST API с «/rest/v1/», хвост отрезаем,
 // иначе вход и регистрация уходят на несуществующий путь и Supabase отвечает «Invalid path specified in request URL»
@@ -56,7 +56,7 @@ async function pull(userId: string) {
     if (error) throw error;
     const rows = (data ?? []) as RemoteRow[];
 
-    await db.transaction('rw', [db.recipes, db.sets, db.days, db.favorites, db.menus, db.ratings, db.pantry], async () => {
+    await db.transaction('rw', allTables(), async () => {
       for (const row of rows) {
         if (!(KINDS as readonly string[]).includes(row.kind)) continue;
         const table = db.table(row.kind);

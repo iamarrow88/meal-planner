@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from 'dexie';
-import type { DayPlan, Favorite, MealSet, Pantry, Rating, Recipe, SavedMenu } from './types';
+import type { DayPlan, Favorite, Leftover, MealSet, Pantry, Rating, Recipe, SavedMenu, Settings } from './types';
 
 /** Служебные поля для синхронизации, хранятся рядом с данными. */
 export interface SyncMeta {
@@ -8,7 +8,7 @@ export interface SyncMeta {
   dirty?: 0 | 1; // 1 — изменено локально и ещё не отправлено
 }
 
-export const KINDS = ['recipes', 'sets', 'days', 'favorites', 'menus', 'ratings', 'pantry'] as const;
+export const KINDS = ['recipes', 'sets', 'days', 'favorites', 'menus', 'ratings', 'pantry', 'leftovers', 'settings'] as const;
 export type Kind = (typeof KINDS)[number];
 
 export const db = new Dexie('meal-planner') as Dexie & {
@@ -19,6 +19,8 @@ export const db = new Dexie('meal-planner') as Dexie & {
   menus: EntityTable<SavedMenu & SyncMeta, 'id'>;
   ratings: EntityTable<Rating & SyncMeta, 'id'>;
   pantry: EntityTable<Pantry & SyncMeta, 'id'>;
+  leftovers: EntityTable<Leftover & SyncMeta, 'id'>;
+  settings: EntityTable<Settings & SyncMeta, 'id'>;
 };
 
 db.version(1).stores({
@@ -66,6 +68,11 @@ db.version(6).stores({ ratings: 'id, dirty' });
 
 db.version(7).stores({ pantry: 'id, dirty' });
 
+db.version(8).stores({ leftovers: 'id, recipeId, dirty', settings: 'id, dirty' });
+
+/** Все таблицы с данными — для транзакций, которые трогают всё сразу. */
+export const allTables = () => KINDS.map((k) => db.table(k));
+
 export const primaryKey =(kind: Kind) => (kind === 'days' ? 'date' : 'id');
 
 export function stripMeta<T extends SyncMeta>(row: T): Omit<T, keyof SyncMeta> {
@@ -88,6 +95,8 @@ export async function save(kind: 'favorites', items: Favorite[]): Promise<void>;
 export async function save(kind: 'menus', items: SavedMenu[]): Promise<void>;
 export async function save(kind: 'ratings', items: Rating[]): Promise<void>;
 export async function save(kind: 'pantry', items: Pantry[]): Promise<void>;
+export async function save(kind: 'leftovers', items: Leftover[]): Promise<void>;
+export async function save(kind: 'settings', items: Settings[]): Promise<void>;
 export async function save(kind: Kind, items: object[]) {
   const now = Date.now();
   await db.table(kind).bulkPut(items.map((i) => ({ ...stripMeta(i), ...fresh(now) })));
@@ -114,6 +123,8 @@ export interface Backup {
   menus?: SavedMenu[];
   ratings?: Rating[];
   pantry?: Pantry[];
+  leftovers?: Leftover[];
+  settings?: Settings[];
 }
 
 async function live<K extends Kind>(kind: K) {
@@ -122,7 +133,7 @@ async function live<K extends Kind>(kind: K) {
 }
 
 export async function exportAll(): Promise<Backup> {
-  const [recipes, sets, days, favorites, menus, ratings, pantry] = await Promise.all([
+  const [recipes, sets, days, favorites, menus, ratings, pantry, leftovers, settings] = await Promise.all([
     live('recipes'),
     live('sets'),
     live('days'),
@@ -130,13 +141,15 @@ export async function exportAll(): Promise<Backup> {
     live('menus'),
     live('ratings'),
     live('pantry'),
+    live('leftovers'),
+    live('settings'),
   ]);
-  return { version: 1, exportedAt: new Date().toISOString(), recipes, sets, days, favorites, menus, ratings, pantry };
+  return { version: 1, exportedAt: new Date().toISOString(), recipes, sets, days, favorites, menus, ratings, pantry, leftovers, settings };
 }
 
 export async function importAll(data: Backup) {
   const now = Date.now();
-  await db.transaction('rw', [db.recipes, db.sets, db.days, db.favorites, db.menus, db.ratings, db.pantry], async () => {
+  await db.transaction('rw', allTables(), async () => {
     for (const kind of KINDS) {
       await db.table(kind).toCollection().modify({ deleted: true, dirty: 1, updatedAt: now });
       await db.table(kind).bulkPut((data[kind] ?? []).map((i: object) => ({ ...stripMeta(i), ...fresh(now) })));

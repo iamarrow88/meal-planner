@@ -44,7 +44,8 @@ export const useMenusStore = defineStore('menus', () => {
       for (const meal of MEALS) {
         const choice = meals[meal];
         if (!choice) continue;
-        if (known.has(choice.setId)) kept[meal] = choice;
+        // «готовлю заново» относится к тем датам, где отмечено, на новые даты не переносится
+        if (known.has(choice.setId)) kept[meal] = { setId: choice.setId, picks: choice.picks, ...(choice.people ? { people: choice.people } : {}) };
         else skipped++;
       }
       return { date: addDays(start, i), meals: kept };
