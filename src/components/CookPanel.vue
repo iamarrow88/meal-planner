@@ -12,7 +12,12 @@ import { useSetsStore } from '@/stores/sets';
  * По умолчанию счётчики заполняются из меню открытого периода — тем, что ещё не покрыто остатками.
  * factor — во сколько раз умножить ингредиенты рецепта.
  */
-const props = defineProps<{ recipe: Recipe }>();
+const props = defineProps<{
+  recipe: Recipe;
+  /** Считать меню только в этих днях (ISO); без них — открытый период от сегодня. */
+  from?: string;
+  until?: string;
+}>();
 const factor = defineModel<number>('factor', { default: 1 });
 
 const sets = useSetsStore();
@@ -32,10 +37,12 @@ interface Row {
 
 const yieldGrams = computed(() => props.recipe.yieldGrams);
 
-/** Блюдо в меню открытого периода, от сегодня. */
-const inMenu = computed(() =>
-  leftovers.needs.filter((n) => n.recipeId === props.recipe.id && n.date >= today() && plan.dates.includes(n.date)),
-);
+/** Блюдо в меню открытого периода, от сегодня (или в днях from–until). */
+const inDays = (date: string) =>
+  props.from || props.until
+    ? date >= (props.from ?? today()) && (!props.until || date <= props.until)
+    : date >= today() && plan.dates.includes(date);
+const inMenu = computed(() => leftovers.needs.filter((n) => n.recipeId === props.recipe.id && inDays(n.date)));
 /** Из них ещё не покрыто остатками. */
 const planned = computed(() =>
   inMenu.value.filter((n) => {
