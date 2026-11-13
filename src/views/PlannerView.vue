@@ -37,14 +37,14 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
     <template v-else>
       <SavedMenus />
       <label class="flex items-center gap-2.5">
-        <span class="hint">На сколько человек готовить обычно</span>
+        <span class="hint">На сколько человек на эту неделю</span>
         <input
           type="number"
           min="1"
           inputmode="numeric"
           class="w-[72px]"
           :value="settings.people"
-          @change="settings.setPeople(Number(($event.target as HTMLInputElement).value))"
+          @change="plan.setWeekPeople(Number(($event.target as HTMLInputElement).value))"
         />
       </label>
       <p class="hint">
@@ -58,9 +58,21 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
         </template>
       </p>
       <div v-for="(day, i) in plan.days" :key="day.date" class="card" :class="{ 'border-accent': day.date === today() }">
-        <div class="flex items-center justify-between gap-2">
-          <h3 class="font-semibold first-letter:uppercase">{{ formatDay(day.date) }}</h3>
-          <div v-if="Object.keys(day.meals).length" class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <h3 class="mr-auto font-semibold first-letter:uppercase">{{ formatDay(day.date) }}</h3>
+          <label class="flex items-center gap-1" :class="day.people ? 'text-accent' : 'text-muted'">
+            <span aria-hidden="true">👥</span>
+            <input
+              type="number"
+              min="1"
+              inputmode="numeric"
+              class="w-[56px]"
+              :value="day.people ?? settings.people"
+              :aria-label="'На сколько человек: ' + formatDay(day.date)"
+              @change="plan.setDayPeople(day.date, Number(($event.target as HTMLInputElement).value))"
+            />
+          </label>
+          <div v-if="Object.keys(day.meals).length" class="flex items-center gap-3 whitespace-nowrap">
             <button
               v-if="plan.length === 7"
               class="link text-[13px]"
@@ -82,6 +94,7 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
           :choice="day.meals[meal]"
           :products="pantry.items"
           :start="i"
+          :day-people="day.people ?? settings.people"
           @change="(c) => plan.setMeal(day, meal, c)"
         />
       </div>

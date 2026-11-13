@@ -13,7 +13,16 @@ import { useSetsStore } from '@/stores/sets';
 import { useSettingsStore } from '@/stores/settings';
 
 /** start — номер дня в периоде: каждый день начинает предложения с других сетов, чтобы неделя не повторялась. */
-const props = defineProps<{ date: string; meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[]; start?: number }>();
+const props = defineProps<{
+  date: string;
+  meal: Meal;
+  sets: MealSet[];
+  choice?: MealChoice;
+  products?: string[];
+  start?: number;
+  /** Число человек этого дня (своё у дня или обычное). */
+  dayPeople?: number;
+}>();
 const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 
 const favorites = useFavoritesStore();
@@ -23,6 +32,7 @@ const recipes = useRecipesStore();
 const allSets = useSetsStore();
 const leftovers = useLeftoversStore();
 const settings = useSettingsStore();
+const dayPeople = computed(() => props.dayPeople ?? settings.people);
 
 // при смене сета число персон этого приёма пищи сохраняется
 const keepPeople = () => (props.choice?.people ? { people: props.choice.people } : {});
@@ -122,7 +132,7 @@ function setFresh(groupId: string, optionId: string, on: boolean) {
 function setPeople(e: Event) {
   const n = Math.round(Number((e.target as HTMLInputElement).value));
   const next: MealChoice = { ...props.choice! };
-  if (n > 0 && n !== settings.people) next.people = n;
+  if (n > 0 && n !== dayPeople.value) next.people = n;
   else delete next.people;
   emit('change', next);
 }
@@ -164,11 +174,11 @@ const cooked = computed(() => {
         min="1"
         inputmode="numeric"
         class="w-[64px]"
-        :value="choice.people ?? settings.people"
+        :value="choice.people ?? dayPeople"
         aria-label="На сколько человек этот приём пищи"
         @change="setPeople"
       />
-      <span v-if="choice.people" class="hint">(обычно {{ settings.people }})</span>
+      <span v-if="choice.people && choice.people !== dayPeople" class="hint">(в этот день {{ dayPeople }})</span>
     </div>
     <div v-if="cooked.length" class="flex flex-col gap-1.5">
       <span class="hint">🍲 Уже приготовлено — нажмите, чтобы выбрать:</span>

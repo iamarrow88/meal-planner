@@ -4,6 +4,7 @@ import { addDays, range, today } from '@/lib/dates';
 import { db, markDeleted, save, type SyncMeta } from '@/lib/db';
 import { useLiveQuery } from '@/lib/live';
 import type { DayPlan, Meal, MealChoice } from '@/lib/types';
+import { useSettingsStore } from './settings';
 
 /** Выбранный период (общий для меню и списка покупок) и дни меню в нём. */
 const PERIOD_KEY = 'period';
@@ -58,13 +59,18 @@ export const usePlanStore = defineStore('plan', () => {
   }
 
   async function setMeal(day: DayPlan, meal: Meal, choice: MealChoice | undefined) {
-    const next: DayPlan = { date: day.date, meals: { ...day.meals } };
+    const next: DayPlan = { date: day.date, meals: { ...day.meals }, ...(day.people ? { people: day.people } : {}) };
     if (choice) next.meals[meal] = choice;
     else delete next.meals[meal];
     await save('days', [JSON.parse(JSON.stringify(next))]); // IndexedDB не принимает reactive-прокси
   }
 
-  const clearDay = (date: string) => markDeleted('days', [date]);
+/** Убирает блюда дня; число человек дня остаётся — оно относится к дате, а не к блюдам. */
+  async function clearDay(date: string) {
+    const day = await getDay(date);
+    if (day.people) await save('days', [{ date, meals: {}, people: day.people }]);
+    else await markDeleted('days', [date]);
+  }
 
   async function getDay(date: string): Promise<DayPlan> {
     const day = await db.days.get(date);
@@ -76,9 +82,32 @@ export const usePlanStore = defineStore('plan', () => {
     await setMeal(await getDay(date), meal, choice);
   }
 
+/** Число человек на день; совпадает с обычным — своё число дня убирается. */
+  async function setDayPeople(date: string, n: number) {
+    const settings = useSettingsStore();
+    const day = await getDay(date);
+    const next: DayPlan = { date, meals: { ...day.meals } };
+    const people = Math.round(n);
+    if (people > 0 && people !== settings.people) next.people = people;
+    if (!next.people && !Object.keys(next.meals).length) await markDeleted('days', [date]);
+    else await save('days', [JSON.parse(JSON.stringify(next))]);
+  }
+
+  /**
+   * Число человек на неделю: становится обычным числом. Дни открытого периода без своего числа получают его сами;
+   * день со своим числом (гости) остаётся, а если оно совпало с новым — своё число убирается.
+   */
+  async function setWeekPeople(n: number) {
+    const settings = useSettingsStore();
+    const people = Math.max(1, Math.round(n) || 1);
+    await settings.setPeople(people);
+    const same = days.value.filter((d) => d.people === people);
+    for (const d of same) await setDayPeople(d.date, people);
+  }
+
   function showDate(date: string) {
     if (!dates.value.includes(date)) start.value = date;
   }
 
-  return { start, length, dates, end, days, shift, setMeal, clearDay, getDay, addToDate, showDate };
+  return { start, length, dates, end, days, shift, setMeal, clearDay, getDay, addToDate, showDate, setDayPeople, setWeekPeople };
 });

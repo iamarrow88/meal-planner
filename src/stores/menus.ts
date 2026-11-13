@@ -39,6 +39,8 @@ export const useMenusStore = defineStore('menus', () => {
     const sets = useSetsStore();
     const known = new Set(sets.sets.map((s) => s.id));
     let skipped = 0;
+    // число человек относится к дате, а не к блюдам: на этих датах оно остаётся
+    const before = await db.days.bulkGet(menu.days.map((_, i) => addDays(start, i)));
     const days: DayPlan[] = menu.days.map((meals, i) => {
       const kept: DayPlan['meals'] = {};
       for (const meal of MEALS) {
@@ -48,10 +50,11 @@ export const useMenusStore = defineStore('menus', () => {
         if (known.has(choice.setId)) kept[meal] = { setId: choice.setId, picks: choice.picks, ...(choice.people ? { people: choice.people } : {}) };
         else skipped++;
       }
-      return { date: addDays(start, i), meals: kept };
+      const people = before[i] && !before[i]!.deleted ? before[i]!.people : undefined;
+      return { date: addDays(start, i), meals: kept, ...(people ? { people } : {}) };
     });
-    const filled = days.filter((d) => Object.keys(d.meals).length);
-    const empty = days.filter((d) => !Object.keys(d.meals).length).map((d) => d.date);
+    const filled = days.filter((d) => Object.keys(d.meals).length || d.people);
+    const empty = days.filter((d) => !Object.keys(d.meals).length && !d.people).map((d) => d.date);
     if (filled.length) await save('days', plain(filled));
     if (empty.length) await markDeleted('days', empty);
     return { skipped };

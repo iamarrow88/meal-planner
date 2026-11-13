@@ -119,7 +119,7 @@ async function copy() {
           min="1"
           placeholder="1"
           class="w-[150px]"
-          @change="settings.setPeople(Number(($event.target as HTMLInputElement).value))"
+          @change="plan.setWeekPeople(Number(($event.target as HTMLInputElement).value))"
         />
       </label>
       <p class="hint">
