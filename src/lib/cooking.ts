@@ -1,4 +1,4 @@
-import type { Coverage, Need } from './leftovers';
+import { needId, type Coverage, type Need } from './leftovers';
 import { normalizeUnit } from './parse';
 import { formatQuantity } from './portions';
 import { displayName, isPantryStaple, productBase, selectedOptions } from './shopping';
@@ -35,16 +35,20 @@ export function cookList(args: {
   const add = (recipeId: string, date: string, meal: Meal, weighable: boolean, open: boolean) => {
     let item = items.get(recipeId);
     if (!item) items.set(recipeId, (item = { recipeId, when: [], weighable, open: false }));
+    item.weighable ||= weighable;
     if (!item.when.some((w) => w.date === date && w.meal === meal)) item.when.push({ date, meal });
     item.open ||= open;
   };
 
+  const counted = new Set<string>();
   for (const n of needs) {
     if (!inRange(n.date)) continue;
+    counted.add(needId(n));
     const c = coverage(n);
     add(n.recipeId, n.date, n.meal, true, !c || (!c.closed && c.missing > 0));
   }
-  // блюда без веса порции в остатках не участвуют — берём их прямо из меню
+  // блюда без веса порции (нет веса готового блюда или порция не в граммах) в остатках не участвуют —
+  // берём их прямо из меню; из списка такие сами не уходят
   for (const day of days) {
     if (!inRange(day.date)) continue;
     for (const meal of MEALS) {
@@ -53,7 +57,7 @@ export function cookList(args: {
       if (!choice || !set) continue;
       for (const group of set.groups)
         for (const option of selectedOptions(group, choice)) {
-          if (!option.recipe || items.get(option.recipe)?.weighable) continue;
+          if (!option.recipe || counted.has(needId({ date: day.date, meal, groupId: group.id, optionId: option.id }))) continue;
           add(option.recipe, day.date, meal, false, true);
         }
     }

@@ -137,6 +137,7 @@ const html = (id: string, body: string) => marked.parse(scaleIngredientsSection(
           :recipe="item.recipe"
           :from="from"
           :until="until"
+          :no-weight="!item.weighable"
           @cooked="onCooked(item.recipe.title, $event)"
         />
         <p v-else class="mt-2 text-[13px] text-warn">

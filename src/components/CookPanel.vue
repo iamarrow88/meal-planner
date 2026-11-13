@@ -17,6 +17,8 @@ const props = defineProps<{
   /** Считать меню только в этих днях (ISO); без них — открытый период от сегодня. */
   from?: string;
   until?: string;
+  /** Считать как без веса: в сетах порция не в граммах — только множитель рецепта, без записи в приготовленное. */
+  noWeight?: boolean;
 }>();
 const factor = defineModel<number>('factor', { default: 1 });
 const emit = defineEmits<{ cooked: [grams: number] }>();
@@ -37,7 +39,7 @@ interface Row {
   dates: string[];
 }
 
-const yieldGrams = computed(() => props.recipe.yieldGrams);
+const yieldGrams = computed(() => (props.noWeight ? undefined : props.recipe.yieldGrams));
 
 /** Блюдо в меню открытого периода, от сегодня (или в днях from–until). */
 const inDays = (date: string) =>
@@ -186,7 +188,9 @@ async function cook() {
         <button class="btn-secondary px-3 py-1" aria-label="Больше" @click="recipeCount++">+</button>
       </div>
       <p class="text-[13px] text-warn">
-        Нет «Вес готового блюда» — пересчитывается весь рецепт, а не порции, и в остатки блюдо записать нельзя.
+        <template v-if="noWeight && recipe.yieldGrams">Порция в сете указана не в граммах</template>
+        <template v-else>Нет «Вес готового блюда»</template>
+        — пересчитывается весь рецепт, а не порции, и в остатки блюдо записать нельзя.
       </p>
     </template>
   </div>

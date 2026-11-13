@@ -31,7 +31,14 @@ const breakfast: MealSet = {
   source: 'Завтрак 1.md',
   groups: [{ id: 'k', title: 'Выпечка', pick: 1, common: [], options: [opt('cake', { recipe: 'cake' })] }],
 };
-const sets = new Map([lunch, breakfast].map((s) => [s.id, s]));
+const pieces: MealSet = {
+  id: 'pcs',
+  name: 'Ужин шт',
+  meal: 'dinner',
+  source: 'Ужин шт.md',
+  groups: [{ id: 'p', title: 'Суп', pick: 1, common: [], options: [opt('soup', { recipe: 'soup', portion: { amount: 1, unit: 'шт' } })] }],
+};
+const sets = new Map([lunch, breakfast, pieces].map((s) => [s.id, s]));
 
 const soupLunch = { setId: 'lunch1', picks: { g: ['soup'] } };
 const day = (date: string, meals: DayPlan['meals']): DayPlan => ({ date, meals });
@@ -76,6 +83,27 @@ describe('cookList', () => {
     expect(list(days).todo).toEqual([
       { recipeId: 'cake', weighable: false, when: [{ date: '2026-11-14', meal: 'breakfast' }] },
       { recipeId: 'soup', weighable: true, when: [{ date: '2026-11-14', meal: 'lunch' }] },
+    ]);
+  });
+
+  it('порция не в граммах — как без веса', () => {
+    const days = [day('2026-11-14', { dinner: { setId: 'pcs', picks: { p: ['soup'] } } })];
+    expect(list(days).todo).toEqual([{ recipeId: 'soup', weighable: false, when: [{ date: '2026-11-14', meal: 'dinner' }] }]);
+  });
+
+  it('граммы в один день, штуки в другой: оба в «нужно к», и не уходит, пока есть штуки', () => {
+    const days = [day('2026-11-14', { lunch: soupLunch }), day('2026-11-15', { dinner: { setId: 'pcs', picks: { p: ['soup'] } } })];
+    const r = list(days, () => cov(0));
+    expect(r.cooked).toEqual([]);
+    expect(r.todo).toEqual([
+      {
+        recipeId: 'soup',
+        weighable: true,
+        when: [
+          { date: '2026-11-14', meal: 'lunch' },
+          { date: '2026-11-15', meal: 'dinner' },
+        ],
+      },
     ]);
   });
 
