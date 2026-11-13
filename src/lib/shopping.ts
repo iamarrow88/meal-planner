@@ -205,12 +205,17 @@ function recipeShare(option: SetOption, recipe: Recipe): number | null {
   return null;
 }
 
-/** Складывает продукты всех выбранных блюд; `people` умножает количество. */
+/**
+ * Складывает продукты всех выбранных блюд. Количество умножается на персоны приёма пищи
+ * (`choice.people`, иначе `people`). `covered` — какая доля блюда (0…1) уже есть в остатках приготовленного:
+ * эту долю рецепта не покупают.
+ */
 export function buildShoppingList(
   days: DayPlan[],
   sets: Map<string, MealSet>,
   recipes: Map<string, Recipe>,
   people: number,
+  covered: (date: string, meal: string, groupId: string, optionId: string) => number = () => 0,
 ) {
   const map = new Map<string, ShoppingLine>();
   const noIngredients = new Set<string>();
@@ -271,14 +276,15 @@ export function buildShoppingList(
   };
 
   for (const day of days) {
-    for (const choice of Object.values(day.meals)) {
+    for (const [meal, choice] of Object.entries(day.meals)) {
       const set = choice && sets.get(choice.setId);
       if (!choice || !set) continue;
+      const n = choice.people || people;
       for (const group of set.groups) {
         const selected = selectedOptions(group, choice);
         if (!selected.length) continue;
-        const factor = people * (group.halves && selected.length === 2 ? 0.5 : 1);
-        for (const ing of group.common) add(ing, people, { title: set.name });
+        const factor = n * (group.halves && selected.length === 2 ? 0.5 : 1);
+        for (const ing of group.common) add(ing, n, { title: set.name });
         for (const option of selected) {
           // у варианта с рецептом это продукты сверх рецепта: «[[Борщ]] + сметана 10 гр»
           for (const ing of option.items) add(ing, factor, { title: set.name });
@@ -287,7 +293,9 @@ export function buildShoppingList(
           if (!recipe.ingredients.length) noIngredients.add(recipe.title);
           const share = recipeShare(option, recipe);
           if (share == null) wholeRecipe.add(recipe.title);
-          for (const ing of recipe.ingredients) add(ing, factor * (share ?? 1), { title: recipe.title, recipe: recipe.id });
+          const toCook = 1 - Math.min(1, Math.max(0, covered(day.date, meal, group.id, option.id)));
+          if (toCook <= 0) continue;
+          for (const ing of recipe.ingredients) add(ing, factor * (share ?? 1) * toCook, { title: recipe.title, recipe: recipe.id });
         }
       }
     }

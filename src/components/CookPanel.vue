@@ -32,10 +32,13 @@ interface Row {
 
 const yieldGrams = computed(() => props.recipe.yieldGrams);
 
-/** Что из меню открытого периода (от сегодня) ещё не покрыто остатками. */
+/** Блюдо в меню открытого периода, от сегодня. */
+const inMenu = computed(() =>
+  leftovers.needs.filter((n) => n.recipeId === props.recipe.id && n.date >= today() && plan.dates.includes(n.date)),
+);
+/** Из них ещё не покрыто остатками. */
 const planned = computed(() =>
-  leftovers.needs.filter((n) => {
-    if (n.recipeId !== props.recipe.id || n.date < today() || !plan.dates.includes(n.date)) return false;
+  inMenu.value.filter((n) => {
     const c = leftovers.coverageOf(n);
     return !!c && !c.closed && c.missing > 0;
   }),
@@ -60,8 +63,8 @@ const rows = computed<Row[]>(() => {
     if (!row.dates.includes(n.date)) row.dates.push(n.date);
   }
   for (const r of list) r.count = Math.round(r.count * 2) / 2;
-  // в меню ничего не ждёт — как раньше: весь рецепт в порциях первого сета
-  if (!planned.value.length && list[0] && yieldGrams.value) list[0].count = Math.max(1, Math.round(yieldGrams.value / list[0].grams));
+  // блюда нет в меню — как раньше: весь рецепт в порциях первого сета; если есть, но всё покрыто, — 0
+  if (!inMenu.value.length && list[0] && yieldGrams.value) list[0].count = Math.max(1, Math.round(yieldGrams.value / list[0].grams));
   return list;
 });
 
@@ -91,7 +94,8 @@ const total = computed(() =>
 
 watch(
   [total, recipeCount, yieldGrams],
-  () => (factor.value = yieldGrams.value ? total.value / yieldGrams.value : recipeCount.value),
+  // пока ничего не набрано — ингредиенты как в заметке
+  () => (factor.value = yieldGrams.value ? (total.value > 0 ? total.value / yieldGrams.value : 1) : recipeCount.value),
   { immediate: true },
 );
 

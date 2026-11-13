@@ -22,7 +22,7 @@ export interface Need {
   portionGrams: number;
   people: number;
   grams: number;
-  /** «Готовлю заново» с этой даты: партии, приготовленные раньше, не берутся. */
+  /** «Готовлю заново» с этого момента (ISO-время): партии, записанные раньше, не берутся. */
   freshSince?: string;
 }
 
@@ -102,8 +102,17 @@ export function eatenOf(batches: Leftover[], need: Pick<Need, 'date' | 'meal' | 
   return sum;
 }
 
-const usable = (b: Leftover, need: Need) =>
-  b.recipeId === need.recipeId && b.cookedAt <= need.date && (!need.freshSince || b.cookedAt >= need.freshSince);
+/** Записана ли партия после отметки «готовлю заново». Старые записи без времени сравниваются по дню. */
+const after = (b: Leftover, since: string) =>
+  b.createdAt != null ? b.createdAt > Date.parse(since) : b.cookedAt > since.slice(0, 10);
+
+const usable = (b: Leftover, need: Pick<Need, 'recipeId' | 'date' | 'freshSince'>) =>
+  b.recipeId === need.recipeId && b.cookedAt <= need.date && (!need.freshSince || after(b, need.freshSince));
+
+/** Сколько свободных остатков рецепта годится для приёма пищи в этот день. */
+export function freeFor(batches: BatchState[], recipeId: string, date: string): number {
+  return batches.filter((s) => usable(s.batch, { recipeId, date })).reduce((sum, s) => sum + s.free, 0);
+}
 
 const byAge = (a: Leftover, b: Leftover) => a.cookedAt.localeCompare(b.cookedAt) || a.id.localeCompare(b.id);
 

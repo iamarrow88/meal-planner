@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { computed } from 'vue';
 import { today } from '@/lib/dates';
 import { db, save, type SyncMeta } from '@/lib/db';
-import { distribute, eatenOf, mealNeeds, needId, splitEaten, type Coverage, type Need } from '@/lib/leftovers';
+import { distribute, eatenOf, freeFor, mealNeeds, needId, splitEaten, type Coverage, type Need } from '@/lib/leftovers';
 import { useLiveQuery } from '@/lib/live';
 import type { DayPlan, Leftover } from '@/lib/types';
 import { useRecipesStore } from './recipes';
@@ -31,18 +31,14 @@ export const useLeftoversStore = defineStore('leftovers', () => {
   const needsOf = (date: string) => needs.value.filter((n) => n.date === date);
   /** Партии с остатком, старшие первыми. */
   const available = computed(() => state.value.batches.filter((s) => s.left > 0));
-  /** Сколько свободно (не занято меню) по рецепту. */
-  const freeByRecipe = computed(() => {
-    const m = new Map<string, number>();
-    for (const s of state.value.batches) m.set(s.batch.recipeId, (m.get(s.batch.recipeId) ?? 0) + s.free);
-    return m;
-  });
+  /** Сколько свободно (не занято меню) остатков рецепта, годных для этого дня. */
+  const freeOn = (recipeId: string, date: string) => freeFor(state.value.batches, recipeId, date);
 
   const put = (b: Leftover) => save('leftovers', [plain(b)]);
   const byId = (id: string) => batches.value.find((b) => b.id === id);
 
   async function cook(recipeId: string, grams: number) {
-    await put({ id: crypto.randomUUID(), recipeId, cookedAt: today(), grams: Math.round(grams), adjust: 0, eaten: [] });
+    await put({ id: crypto.randomUUID(), recipeId, cookedAt: today(), createdAt: Date.now(), grams: Math.round(grams), adjust: 0, eaten: [] });
   }
 
   /** «Выбросили»: списать граммы (не больше, чем лежит). */
@@ -80,5 +76,5 @@ export const useLeftoversStore = defineStore('leftovers', () => {
 
   const eatenFor = (need: Need) => eatenOf(batches.value, need);
 
-  return { batches, needs, state, available, freeByRecipe, coverageOf, needsOf, cook, discard, weigh, eat, uneat, eatenFor };
+  return { batches, needs, state, available, freeOn, coverageOf, needsOf, cook, discard, weigh, eat, uneat, eatenFor };
 });

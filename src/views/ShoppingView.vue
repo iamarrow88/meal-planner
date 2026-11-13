@@ -3,14 +3,20 @@ import { computed, ref, watch } from 'vue';
 import PeriodBar from '@/components/PeriodBar.vue';
 import { CATEGORIES } from '@/lib/categories';
 import { formatDay } from '@/lib/dates';
+import { needId } from '@/lib/leftovers';
 import { buildShoppingList, describeLine, lineTitle } from '@/lib/shopping';
+import type { Meal } from '@/lib/types';
+import { useLeftoversStore } from '@/stores/leftovers';
 import { usePlanStore } from '@/stores/plan';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
+import { useSettingsStore } from '@/stores/settings';
 
 const plan = usePlanStore();
 const recipes = useRecipesStore();
 const sets = useSetsStore();
+const settings = useSettingsStore();
+const leftovers = useLeftoversStore();
 
 function load<T>(key: string, fallback: T): T {
   try {
@@ -29,15 +35,23 @@ function store(key: string, value: unknown) {
   }
 }
 
-const people = ref(load('people', 0));
-watch(people, (n) => store('people', Number(n) || 0));
+// «Сколько человек» — то же число по умолчанию, что в меню; у приёма пищи может быть своё
+const people = computed(() => settings.people);
+
+// какая доля блюда уже есть в остатках приготовленного: съеденное из них или занятое
+function covered(date: string, meal: string, groupId: string, optionId: string) {
+  const need = leftovers.needs.find((n) => needId(n) === needId({ date, meal: meal as Meal, groupId, optionId }));
+  const c = need && leftovers.coverageOf(need);
+  if (!need || !c || !need.grams) return 0;
+  return (c.closed ? c.eaten : c.covered) / need.grams;
+}
 
 // отметки «куплено» запоминаются отдельно для каждого периода
 const checkedKey = computed(() => `checked:${plan.start}:${plan.length}`);
 const checked = ref<string[]>([]);
 watch(checkedKey, (key) => (checked.value = load(key, [])), { immediate: true });
 
-const list = computed(() => buildShoppingList(plan.days, sets.byId, recipes.byId, Number(people.value) || 1));
+const list = computed(() => buildShoppingList(plan.days, sets.byId, recipes.byId, people.value, covered));
 const left = computed(() => list.value.lines.filter((l) => !checked.value.includes(l.key)).length);
 
 /** Подпись над распечатанным списком: за какой период и на сколько человек. */
@@ -99,9 +113,19 @@ async function copy() {
     <div class="card flex flex-col gap-2.5 print:hidden">
       <label class="flex items-center gap-2.5">
         <span class="hint">Сколько человек</span>
-        <input v-model.number="people" type="number" min="1" placeholder="1" class="w-[150px]" />
+        <input
+          :value="people"
+          type="number"
+          min="1"
+          placeholder="1"
+          class="w-[150px]"
+          @change="settings.setPeople(Number(($event.target as HTMLInputElement).value))"
+        />
       </label>
-      <p class="hint">Для рецептов считается доля на вашу порцию: 50 г от блюда весом 350 г — это 1/7 ингредиентов.</p>
+      <p class="hint">
+        Для рецептов считается доля на вашу порцию: 50 г от блюда весом 350 г — это 1/7 ингредиентов. Это число по
+        умолчанию, у приёма пищи в меню может быть своё. Что уже есть в остатках приготовленного, не покупается.
+      </p>
     </div>
 
     <p v-if="!list.lines.length" class="py-6 text-center text-muted">На выбранный период блюда не выбраны.</p>

@@ -9,10 +9,12 @@ import { MEALS } from '@/lib/types';
 import { usePantryStore } from '@/stores/pantry';
 import { usePlanStore } from '@/stores/plan';
 import { useSetsStore } from '@/stores/sets';
+import { useSettingsStore } from '@/stores/settings';
 
 const plan = usePlanStore();
 const sets = useSetsStore();
 const pantry = usePantryStore();
+const settings = useSettingsStore();
 
 // продукты дома выбираются на главной и действуют на все дни
 const pantryNames = computed(() => pantry.items.map(pantry.nameOf).join(', '));
@@ -34,6 +36,17 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
     </p>
     <template v-else>
       <SavedMenus />
+      <label class="flex items-center gap-2.5">
+        <span class="hint">На сколько человек готовить обычно</span>
+        <input
+          type="number"
+          min="1"
+          inputmode="numeric"
+          class="w-[72px]"
+          :value="settings.people"
+          @change="settings.setPeople(Number(($event.target as HTMLInputElement).value))"
+        />
+      </label>
       <p class="hint">
         <template v-if="pantry.items.length">
           🧺 Подбираю сеты по продуктам дома: {{ pantryNames }}.
@@ -63,6 +76,7 @@ const setsFor = (meal: string) => sets.sets.filter((s) => s.meal === meal);
         <MealSlot
           v-for="meal in meals"
           :key="meal"
+          :date="day.date"
           :meal="meal"
           :sets="setsFor(meal)"
           :choice="day.meals[meal]"

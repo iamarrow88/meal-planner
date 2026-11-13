@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { distribute, mealNeeds, needId, splitEaten, type Need } from './leftovers';
+import { distribute, freeFor, mealNeeds, needId, splitEaten, type Need } from './leftovers';
 import type { DayPlan, Leftover, MealSet, Recipe, SetOption } from './types';
 
 const recipe: Recipe = {
@@ -100,11 +100,16 @@ describe('distribute', () => {
     expect(coverage.get(needId(ns[0]))).toMatchObject({ covered: 0, missing: 300 });
   });
 
-  it('«готовлю заново» не берёт из старых партий, но берёт из новой', () => {
-    const ns = needs([day('2026-11-16', { lunch: { ...soupLunch, fresh: { 'g:soup': '2026-11-14' } } })]);
-    const old = distribute([batch('old', '2026-11-13', 500)], ns);
+  it('«готовлю заново» не берёт из партий, записанных раньше отметки, но берёт из записанной после', () => {
+    const mark = '2026-11-14T10:00:00.000Z';
+    const ns = needs([day('2026-11-16', { lunch: { ...soupLunch, fresh: { 'g:soup': mark } } })]);
+    const before = Date.parse(mark) - 1000;
+    const old = distribute([batch('old', '2026-11-14', 500, { createdAt: before })], ns);
     expect(old.coverage.get(needId(ns[0]))!.covered).toBe(0);
-    const fresh = distribute([batch('old', '2026-11-13', 500), batch('new', '2026-11-14', 300)], ns);
+    const fresh = distribute(
+      [batch('old', '2026-11-14', 500, { createdAt: before }), batch('new', '2026-11-14', 300, { createdAt: before + 5000 })],
+      ns,
+    );
     expect(fresh.coverage.get(needId(ns[0]))!.covered).toBe(300);
     expect(fresh.batches.find((b) => b.batch.id === 'old')!.reserved).toBe(0);
   });
@@ -131,6 +136,15 @@ describe('distribute', () => {
       ['old', 200],
       ['new', 100],
     ]);
+  });
+});
+
+describe('freeFor', () => {
+  it('учитывает только партии, приготовленные к этому дню', () => {
+    const { batches } = distribute([batch('a', '2026-11-13', 100), batch('b', '2026-11-15', 200)], []);
+    expect(freeFor(batches, 'soup', '2026-11-12')).toBe(0);
+    expect(freeFor(batches, 'soup', '2026-11-14')).toBe(100);
+    expect(freeFor(batches, 'soup', '2026-11-15')).toBe(300);
   });
 });
 

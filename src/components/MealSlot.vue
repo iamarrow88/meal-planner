@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import GroupPicker from '@/components/GroupPicker.vue';
+import LeftoverStatus from '@/components/LeftoverStatus.vue';
+import { optionKey } from '@/lib/leftovers';
 import { missingProducts, suggestSets } from '@/lib/matching';
 import { MEAL_LABELS, type Meal, type MealChoice, type MealSet, type SetGroup } from '@/lib/types';
 import { useFavoritesStore } from '@/stores/favorites';
+import { useLeftoversStore } from '@/stores/leftovers';
 import { useRatingsStore } from '@/stores/ratings';
 import { useRecipesStore } from '@/stores/recipes';
 import { useSetsStore } from '@/stores/sets';
+import { useSettingsStore } from '@/stores/settings';
 
 /** start — номер дня в периоде: каждый день начинает предложения с других сетов, чтобы неделя не повторялась. */
-const props = defineProps<{ meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[]; start?: number }>();
+const props = defineProps<{ date: string; meal: Meal; sets: MealSet[]; choice?: MealChoice; products?: string[]; start?: number }>();
 const emit = defineEmits<{ change: [choice: MealChoice | undefined] }>();
 
 const favorites = useFavoritesStore();
@@ -17,6 +21,11 @@ const ratings = useRatingsStore();
 const prefs = { isFavorite: favorites.has, setRating: ratings.ofSet, recipeRating: ratings.ofRecipe };
 const recipes = useRecipesStore();
 const allSets = useSetsStore();
+const leftovers = useLeftoversStore();
+const settings = useSettingsStore();
+
+// при смене сета число персон этого приёма пищи сохраняется
+const keepPeople = () => (props.choice?.people ? { people: props.choice.people } : {});
 
 const PAGE = 3;
 
@@ -50,7 +59,7 @@ const showSuggestions = computed(() => !!props.products?.length && (!props.choic
 
 function pickSuggestion(choice: MealChoice) {
   browsing.value = false;
-  emit('change', choice);
+  emit('change', { ...choice, ...keepPeople() });
 }
 
 // сет можно поставить и на другой приём пищи («Добавить в меню»), поэтому ищем среди всех
@@ -79,12 +88,61 @@ const setGroups = computed(() => {
 
 function pickSet(e: Event) {
   const setId = (e.target as HTMLSelectElement).value;
-  emit('change', setId ? { setId, picks: {} } : undefined);
+  emit('change', setId ? { setId, picks: {}, ...keepPeople() } : undefined);
 }
 
 function pickOptions(group: SetGroup, picked: string[]) {
-  emit('change', { ...props.choice!, picks: { ...props.choice!.picks, [group.id]: picked } });
+  const picks = { ...props.choice!.picks, [group.id]: picked };
+  // «готовлю заново» у вариантов, которые больше не выбраны, не нужно
+  const fresh = Object.fromEntries(
+    Object.entries(props.choice!.fresh ?? {}).filter(([key]) => {
+      const [g, o] = key.split(':');
+      return picks[g]?.includes(o);
+    }),
+  );
+  const next: MealChoice = { ...props.choice!, picks };
+  if (Object.keys(fresh).length) next.fresh = fresh;
+  else delete next.fresh;
+  emit('change', next);
 }
+
+// блюда из остатков: что нужно этому приёму пищи и откуда оно берётся
+const needsOf = (group: SetGroup) =>
+  leftovers.needs.filter((n) => n.date === props.date && n.meal === props.meal && n.groupId === group.id);
+
+function setFresh(groupId: string, optionId: string, on: boolean) {
+  const fresh = { ...(props.choice!.fresh ?? {}) };
+  if (on) fresh[optionKey(groupId, optionId)] = new Date().toISOString();
+  else delete fresh[optionKey(groupId, optionId)];
+  const next: MealChoice = { ...props.choice!, fresh };
+  if (!Object.keys(fresh).length) delete next.fresh;
+  emit('change', next);
+}
+
+function setPeople(e: Event) {
+  const n = Math.round(Number((e.target as HTMLInputElement).value));
+  const next: MealChoice = { ...props.choice! };
+  if (n > 0 && n !== settings.people) next.people = n;
+  else delete next.people;
+  emit('change', next);
+}
+
+// «Уже приготовлено»: сеты этого приёма пищи с блюдом, которого есть свободный остаток
+const cooked = computed(() => {
+  if (props.choice) return [];
+  const list: { set: MealSet; title: string; choice: MealChoice }[] = [];
+  for (const s of props.sets) {
+    for (const group of s.groups) {
+      for (const option of group.options) {
+        if (!option.recipe || !(leftovers.freeOn(option.recipe, props.date) > 0)) continue;
+        const title = recipes.byId.get(option.recipe)?.title ?? option.label;
+        const picks = group.pick ? { [group.id]: [option.id] } : {};
+        list.push({ set: s, title, choice: { setId: s.id, picks } });
+      }
+    }
+  }
+  return list;
+});
 </script>
 
 <template>
@@ -98,6 +156,31 @@ function pickOptions(group: SetGroup, picked: string[]) {
           <option v-for="s in g.sets" :key="s.id" :value="s.id">{{ s.name }}</option>
         </optgroup>
       </select>
+    </div>
+    <div v-if="choice && set" class="flex items-center gap-2">
+      <span class="hint">На сколько человек</span>
+      <input
+        type="number"
+        min="1"
+        inputmode="numeric"
+        class="w-[64px]"
+        :value="choice.people ?? settings.people"
+        aria-label="На сколько человек этот приём пищи"
+        @change="setPeople"
+      />
+      <span v-if="choice.people" class="hint">(обычно {{ settings.people }})</span>
+    </div>
+    <div v-if="cooked.length" class="flex flex-col gap-1.5">
+      <span class="hint">🍲 Уже приготовлено — нажмите, чтобы выбрать:</span>
+      <button
+        v-for="c in cooked"
+        :key="c.set.id + c.title"
+        class="chip flex flex-col items-start gap-0.5"
+        @click="emit('change', c.choice)"
+      >
+        <span>{{ c.title }}</span>
+        <span class="hint font-normal">в сете «{{ c.set.name }}»</span>
+      </button>
     </div>
     <button v-if="products?.length && choice && !browsing" class="link text-[13px]" @click="browsing = true">
       🧺 Подобрать другой по продуктам
@@ -133,14 +216,20 @@ function pickOptions(group: SetGroup, picked: string[]) {
     <p v-if="choice && !set" class="text-[13px] text-warn">Этого сета больше нет — выберите другой.</p>
     <template v-if="set">
       <p v-if="set.note" class="hint">{{ set.note }}</p>
-      <GroupPicker
-        v-for="group in set.groups"
-        :key="group.id"
-        :group="group"
-        :picked="choice?.picks?.[group.id] ?? []"
-        required
-        @change="(picked) => pickOptions(group, picked)"
-      />
+      <template v-for="group in set.groups" :key="group.id">
+        <GroupPicker
+          :group="group"
+          :picked="choice?.picks?.[group.id] ?? []"
+          required
+          @change="(picked) => pickOptions(group, picked)"
+        />
+        <LeftoverStatus
+          v-for="n in needsOf(group)"
+          :key="n.optionId"
+          :need="n"
+          @fresh="(on) => setFresh(n.groupId, n.optionId, on)"
+        />
+      </template>
       <p v-if="products?.length && !browsing && (missingNow.length || allPicked)" class="hint">
         {{ missingNow.length ? `Ещё нужно для выбранных блюд: ${missingNow.join(', ')}` : 'Всё для выбранных блюд есть дома.' }}
       </p>
