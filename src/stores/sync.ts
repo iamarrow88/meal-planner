@@ -41,8 +41,24 @@ function writeCursor(userId: string, value: string) {
   }
 }
 
+/**
+ * Старая версия приложения пропускает записи незнакомых ей видов и уходит курсором дальше. Когда в приложении
+ * появляются новые виды данных (например, остатки), один раз скачиваем всё заново, чтобы их не потерять.
+ */
+function resetCursorOnNewKinds(userId: string) {
+  const key = `sync-kinds:${userId}`;
+  try {
+    if (localStorage.getItem(key) === KINDS.join()) return;
+    localStorage.removeItem(cursorKey(userId));
+    localStorage.setItem(key, KINDS.join());
+  } catch {
+    /* хранилище недоступно — курсора всё равно нет, скачается всё */
+  }
+}
+
 /** Скачивает изменения с сервера; более новая версия записи побеждает. */
 async function pull(userId: string) {
+  resetCursorOnNewKinds(userId);
   // небольшой запас назад: строки, записанные параллельно, не потеряются, а повторы безвредны
   const since = new Date(new Date(readCursor(userId)).getTime() - 5000).toISOString();
   let cursor = readCursor(userId);
