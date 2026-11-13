@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { formatDay, today } from '@/lib/dates';
-import { portionSources } from '@/lib/portions';
+import { portionCount, portionSources } from '@/lib/portions';
 import type { Recipe } from '@/lib/types';
 import { useLeftoversStore } from '@/stores/leftovers';
 import { usePlanStore } from '@/stores/plan';
@@ -66,10 +66,10 @@ const rows = computed<Row[]>(() => {
       row = { key, label: sets.byId.get(n.setId)?.name ?? 'Сет', grams: n.portionGrams, count: 0, dates: [] };
       list.push(row);
     }
-    row.count += leftovers.coverageOf(n)!.missing / n.portionGrams;
+    row.count += leftovers.coverageOf(n)!.missing; // пока в граммах
     if (!row.dates.includes(n.date)) row.dates.push(n.date);
   }
-  for (const r of list) r.count = Math.round(r.count * 2) / 2;
+  for (const r of list) r.count = portionCount(r.count, r.grams);
   // блюда нет в меню — как раньше: весь рецепт в порциях первого сета; если есть, но всё покрыто, — 0
   if (!inMenu.value.length && list[0] && yieldGrams.value) list[0].count = Math.max(1, Math.round(yieldGrams.value / list[0].grams));
   return list;

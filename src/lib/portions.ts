@@ -29,6 +29,12 @@ export function portionSources(recipe: Recipe, sets: MealSet[]): PortionSource[]
   return result;
 }
 
+/** Сколько порций на эти граммы — до половинок; если что-то нужно, не меньше половины порции. */
+export function portionCount(grams: number, portion: number): number {
+  if (grams <= 0 || portion <= 0) return 0;
+  return Math.max(0.5, Math.round((grams / portion) * 2) / 2);
+}
+
 const SIGNS: Record<string, number> = { '½': 1 / 2, '¼': 1 / 4, '¾': 3 / 4, '⅓': 1 / 3, '⅔': 2 / 3 };
 
 /** г и мл — до целых, кг и л — до сотых, штуки и ложки — до половинок. */

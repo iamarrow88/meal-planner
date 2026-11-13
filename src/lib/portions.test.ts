@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { parseRecipe } from './parse';
-import { portionSources, scaleIngredientsSection, scaleQuantity } from './portions';
+import { portionSources, scaleIngredientsSection, scaleQuantity, portionCount } from './portions';
 import type { MealSet, SetOption } from './types';
 
 describe('scaleQuantity', () => {
@@ -81,5 +81,14 @@ describe('portionSources', () => {
     const p = { amount: 50, unit: 'г' };
     const sets = [set('a', 'A', [option({ portion: p }), option({ id: 'x', portion: p }), option({ id: 'y', recipe: 'other', portion: p })])];
     expect(portionSources(recipe, sets)).toHaveLength(1);
+  });
+});
+
+describe('portionCount', () => {
+  it('до половинок, но недостающее не округляется в ноль', () => {
+    expect(portionCount(600, 300)).toBe(2);
+    expect(portionCount(50, 300)).toBe(0.5);
+    expect(portionCount(0, 300)).toBe(0);
+    expect(portionCount(380, 300)).toBe(1.5);
   });
 });

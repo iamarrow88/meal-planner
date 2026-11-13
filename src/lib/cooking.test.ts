@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cookList, sharedIngredients } from './cooking';
+import { cookList, openOn, sharedIngredients } from './cooking';
 import { mealNeeds, type Coverage, type Need } from './leftovers';
 import type { DayPlan, Ingredient, MealSet, Recipe, SetOption } from './types';
 
@@ -144,5 +144,15 @@ describe('sharedIngredients', () => {
         { recipe: r('b', 'Б', [ing('Соль', null), ing('Вода', 100, 'мл')]), factor: 1 },
       ]),
     ).toEqual([]);
+  });
+});
+
+describe('openOn', () => {
+  it('непокрытые приёмы пищи рецепта в этот день', () => {
+    const days = [day('2026-11-13', { lunch: soupLunch, dinner: { setId: 'lunch1', picks: { g: ['soup'] } } }), day('2026-11-14', { lunch: soupLunch })];
+    const needs = mealNeeds(days, sets, recipes, 1);
+    const coverage = (n: Need) => (n.meal === 'dinner' ? cov(0) : cov(300));
+    expect(openOn(needs, coverage, 'soup', '2026-11-13')).toEqual(['lunch']);
+    expect(openOn(needs, () => cov(0, true), 'soup', '2026-11-13')).toEqual([]);
   });
 });

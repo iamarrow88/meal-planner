@@ -67,6 +67,17 @@ export function cookList(args: {
   };
 }
 
+/** Приёмы пищи этого дня, где рецепт нужен и ещё не покрыт остатками. */
+export function openOn(needs: Need[], coverage: (n: Need) => Coverage | undefined, recipeId: string, date: string): Meal[] {
+  return needs
+    .filter((n) => n.recipeId === recipeId && n.date === date)
+    .filter((n) => {
+      const c = coverage(n);
+      return !c || (!c.closed && c.missing > 0);
+    })
+    .map((n) => n.meal);
+}
+
 /** Продукт, который нужен нескольким рецептам: «Яйца — 5 шт: Кекс 2 шт, Салат 3 шт». */
 export interface SharedLine {
   name: string;

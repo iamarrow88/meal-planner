@@ -2,7 +2,7 @@
 import { marked } from 'marked';
 import { computed, reactive, ref } from 'vue';
 import CookPanel from '@/components/CookPanel.vue';
-import { cookList, sharedIngredients } from '@/lib/cooking';
+import { cookList, openOn, sharedIngredients } from '@/lib/cooking';
 import { addDays, formatDay, range, today } from '@/lib/dates';
 import { scaleIngredientsSection } from '@/lib/portions';
 import { MEAL_LABELS, type Meal } from '@/lib/types';
@@ -59,6 +59,10 @@ const shared = computed(() =>
   ),
 );
 
+/** Сегодня рецепт тоже нужен и не покрыт: приготовленное сначала уйдёт туда (вкладка считает с завтра). */
+const todayOpen = (recipeId: string) =>
+  openOn(leftovers.needs, leftovers.coverageOf, recipeId, today()).map((m) => MEAL_LABELS[m].toLowerCase());
+
 const collapsed = reactive<Record<string, boolean>>({});
 
 const whenLabel = (when: { date: string; meal: Meal }[]) =>
@@ -106,6 +110,10 @@ const html = (id: string, body: string) => marked.parse(scaleIngredientsSection(
         <RouterLink :to="{ name: 'recipe', params: { id: item.recipeId } }" class="link mt-1 inline-block text-[13px]">
           Открыть рецепт
         </RouterLink>
+        <p v-if="todayOpen(item.recipeId).length" class="mt-1 text-[13px] text-warn">
+          Сегодня ({{ todayOpen(item.recipeId).join(', ') }}) это блюдо тоже ещё не покрыто — приготовленное сначала
+          уйдёт туда. Если уже поели, отметьте «Съедено» в меню.
+        </p>
         <CookPanel
           v-if="item.recipe.ingredients.length"
           v-model:factor="factors[item.recipeId]"
