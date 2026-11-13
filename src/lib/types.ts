@@ -65,7 +65,7 @@ export interface MealSet {
 export interface MealChoice {
   setId: string;
   picks: Record<string, string[]>; // id группы → id выбранных вариантов
-  /** На сколько человек этот приём пищи; нет — число по умолчанию из настроек. */
+  /** На сколько человек этот приём пищи; нет — число дня, а если и его нет, — по умолчанию из настроек. */
   people?: number;
   /**
    * «Готовлю заново»: '<id группы>:<id варианта>' → когда отмечено (ISO-время).
@@ -130,4 +130,6 @@ export interface Pantry {
 export interface DayPlan {
   date: string; // YYYY-MM-DD
   meals: Partial<Record<Meal, MealChoice>>;
+  /** На сколько человек в этот день; нет — число по умолчанию. У приёма пищи может быть своё. */
+  people?: number;
 }

@@ -207,7 +207,7 @@ function recipeShare(option: SetOption, recipe: Recipe): number | null {
 
 /**
  * Складывает продукты всех выбранных блюд. Количество умножается на персоны приёма пищи
- * (`choice.people`, иначе `people`). `covered` — какая доля блюда (0…1) уже есть в остатках приготовленного:
+ * (`choice.people`, иначе число дня `day.people`, иначе `people`). `covered` — какая доля блюда (0…1) уже есть в остатках приготовленного:
  * эту долю рецепта не покупают.
  */
 export function buildShoppingList(
@@ -279,7 +279,7 @@ export function buildShoppingList(
     for (const [meal, choice] of Object.entries(day.meals)) {
       const set = choice && sets.get(choice.setId);
       if (!choice || !set) continue;
-      const n = choice.people || people;
+      const n = choice.people || day.people || people;
       for (const group of set.groups) {
         const selected = selectedOptions(group, choice);
         if (!selected.length) continue;

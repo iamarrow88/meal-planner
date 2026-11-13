@@ -32,6 +32,14 @@ const recipes = new Map([[recipe.id, recipe]]);
 const amountOf = (lines: { name: string; amount: number | null }[], name: string) => lines.find((l) => l.name === name)?.amount;
 
 describe('buildShoppingList', () => {
+  it('число дня — для приёмов пищи без своего числа', () => {
+    const days: DayPlan[] = [
+      { date: '2026-11-14', people: 2, meals: { lunch: { setId: 'lunch1', picks: { g: ['soup'] } } } },
+      { date: '2026-11-15', people: 2, meals: { lunch: { setId: 'lunch1', picks: { g: ['soup'] }, people: 5 } } },
+    ];
+    expect(amountOf(buildShoppingList(days, sets, recipes, 1).lines, 'Сметана')).toBe(140); // 20 × 2 + 20 × 5
+  });
+
   it('персоны приёма пищи важнее числа по умолчанию', () => {
     const days: DayPlan[] = [{ date: '2026-11-14', meals: { lunch: { setId: 'lunch1', picks: { g: ['soup'] }, people: 3 } } }];
     const { lines } = buildShoppingList(days, sets, recipes, 1);

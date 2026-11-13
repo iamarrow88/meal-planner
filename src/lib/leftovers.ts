@@ -45,7 +45,7 @@ export function mealNeeds(
       const choice = day.meals[meal];
       const set = choice && sets.get(choice.setId);
       if (!choice || !set) continue;
-      const people = choice.people || defaultPeople || 1;
+      const people = choice.people || day.people || defaultPeople || 1;
       for (const group of set.groups) {
         const selected = selectedOptions(group, choice);
         const share = group.halves && selected.length === 2 ? 0.5 : 1;

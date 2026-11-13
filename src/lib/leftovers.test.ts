@@ -71,6 +71,16 @@ describe('mealNeeds', () => {
     ]);
   });
 
+  it('число дня, если у приёма пищи нет своего', () => {
+    const [a1, b1] = mealNeeds(
+      [{ date: '2026-11-14', people: 2, meals: { lunch: soupLunch, dinner: { setId: 'dinner1', picks: { h: ['soup'] }, people: 4 } } }],
+      sets,
+      recipes,
+      1,
+    );
+    expect([a1.people, b1.people]).toEqual([2, 4]);
+  });
+
   it('два варианта «по половине» — каждый вдвое меньше; персоны по умолчанию', () => {
     const [n] = mealNeeds([day('2026-11-14', { dinner: { setId: 'dinner1', picks: { h: ['soup', 'rice'] } } })], sets, recipes, 3);
     expect(n.grams).toBe(300); // 200 × 0,5 × 3
