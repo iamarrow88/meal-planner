@@ -88,6 +88,12 @@ export interface Rating {
   stars: number;
 }
 
+/** Продукты, которые есть дома (ключи из каталога продуктов); одна запись с id «home». */
+export interface Pantry {
+  id: string;
+  items: string[];
+}
+
 export interface DayPlan {
   date: string; // YYYY-MM-DD
   meals: Partial<Record<Meal, MealChoice>>;
