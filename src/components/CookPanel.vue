@@ -9,7 +9,7 @@ import { useSetsStore } from '@/stores/sets';
 
 /**
  * Сколько готовить: счётчик у каждого размера порции из сетов и своя порция в граммах.
- * По умолчанию счётчики заполняются из меню открытого периода — тем, что ещё не покрыто остатками.
+ * По умолчанию счётчики заполняются из меню открытого периода (или дней from–until) — тем, что ещё не покрыто остатками.
  * factor — во сколько раз умножить ингредиенты рецепта.
  */
 const props = defineProps<{
@@ -19,12 +19,14 @@ const props = defineProps<{
   until?: string;
 }>();
 const factor = defineModel<number>('factor', { default: 1 });
+const emit = defineEmits<{ cooked: [grams: number] }>();
 
 const sets = useSetsStore();
 const plan = usePlanStore();
 const leftovers = useLeftoversStore();
 
 const fmt = (n: number) => String(Math.round(n * 2) / 2).replace('.', ',');
+const fmtExact = (n: number) => String(Math.round(n * 100) / 100).replace('.', ',');
 const shortDay = (iso: string) => formatDay(iso).replace(/,.*$/, '');
 
 interface Row {
@@ -71,7 +73,8 @@ const rows = computed<Row[]>(() => {
   }
   for (const r of list) r.count = portionCount(r.count, r.grams);
   // блюда нет в меню — как раньше: весь рецепт в порциях первого сета; если есть, но всё покрыто, — 0
-  if (!inMenu.value.length && list[0] && yieldGrams.value) list[0].count = Math.max(1, Math.round(yieldGrams.value / list[0].grams));
+  if (!inMenu.value.length && list[0] && yieldGrams.value)
+    list[0].count = Math.max(1, Math.round(yieldGrams.value / list[0].grams));
   return list;
 });
 
@@ -95,8 +98,10 @@ watch(
   { immediate: true },
 );
 
-const total = computed(() =>
-  rows.value.reduce((s, r) => s + (counts.value[r.key] ?? 0) * r.grams, 0) + (customGrams.value ?? 0) * customCount.value,
+const total = computed(
+  () =>
+    rows.value.reduce((s, r) => s + (counts.value[r.key] ?? 0) * r.grams, 0) +
+    (customGrams.value ?? 0) * customCount.value,
 );
 
 watch(
@@ -114,6 +119,7 @@ async function cook() {
   const grams = Math.round(total.value);
   await leftovers.cook(props.recipe.id, grams);
   done.value = `Записано: ${grams} г. Остатки — на Главной.`;
+  emit('cooked', grams);
 }
 </script>
 
@@ -126,7 +132,12 @@ async function cook() {
           {{ r.label }} — {{ fmt(r.grams) }} г
           <span v-if="r.dates.length" class="hint block">в меню: {{ r.dates.map(shortDay).join(', ') }}</span>
         </span>
-        <button class="btn-secondary px-3 py-1" :aria-label="`Меньше: ${r.label}`" :disabled="!counts[r.key]" @click="step(r.key, -1)">
+        <button
+          class="btn-secondary px-3 py-1"
+          :aria-label="`Меньше: ${r.label}`"
+          :disabled="!counts[r.key]"
+          @click="step(r.key, -1)"
+        >
           −
         </button>
         <span class="min-w-[3ch] text-center text-[17px] font-semibold">{{ fmt(counts[r.key] ?? 0) }}</span>
@@ -146,12 +157,19 @@ async function cook() {
           />
           г
         </label>
-        <button class="btn-secondary px-3 py-1" aria-label="Меньше своих порций" :disabled="!customCount" @click="customCount--">−</button>
+        <button
+          class="btn-secondary px-3 py-1"
+          aria-label="Меньше своих порций"
+          :disabled="!customCount"
+          @click="customCount--"
+        >
+          −
+        </button>
         <span class="min-w-[3ch] text-center text-[17px] font-semibold">{{ customCount }}</span>
         <button class="btn-secondary px-3 py-1" aria-label="Больше своих порций" @click="customCount++">+</button>
       </div>
       <p class="hint">
-        Итого {{ Math.round(total) }} г — {{ fmt(total / yieldGrams) }} рецепта (весь рецепт — {{ yieldGrams }} г)
+        Итого {{ Math.round(total) }} г — {{ fmtExact(total / yieldGrams) }} рецепта (весь рецепт — {{ yieldGrams }} г)
       </p>
       <div class="flex flex-wrap items-center gap-2">
         <button class="btn-primary" :disabled="total <= 0" @click="cook">Приготовлено</button>
@@ -161,7 +179,9 @@ async function cook() {
     <template v-else>
       <div class="flex flex-wrap items-center gap-1.5">
         <span class="w-[72px] shrink-0 font-medium">Рецептов</span>
-        <button class="btn-secondary px-3 py-1" aria-label="Меньше" :disabled="recipeCount <= 1" @click="recipeCount--">−</button>
+        <button class="btn-secondary px-3 py-1" aria-label="Меньше" :disabled="recipeCount <= 1" @click="recipeCount--">
+          −
+        </button>
         <span class="min-w-[2ch] text-center text-[17px] font-semibold">{{ recipeCount }}</span>
         <button class="btn-secondary px-3 py-1" aria-label="Больше" @click="recipeCount++">+</button>
       </div>

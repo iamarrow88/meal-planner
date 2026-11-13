@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { today } from '@/lib/dates';
 import { db, save, type SyncMeta } from '@/lib/db';
 import { distribute, eatenOf, freeFor, mealNeeds, needId, splitEaten, type Coverage, type Need } from '@/lib/leftovers';
@@ -21,7 +21,9 @@ export const useLeftoversStore = defineStore('leftovers', () => {
   const settings = useSettingsStore();
 
   const rows = useLiveQuery<(Leftover & SyncMeta)[]>(() => db.leftovers.filter((b) => !b.deleted).toArray(), []);
-  const days = useLiveQuery<DayPlan[]>(() => db.days.filter((d) => !d.deleted).toArray(), []);
+  /** Дни меню уже прочитаны из базы (до этого список пуст не потому, что меню пустое). */
+  const loaded = ref(false);
+  const days = useLiveQuery<DayPlan[]>(() => db.days.filter((d) => !d.deleted).toArray(), [], undefined, loaded);
 
   const batches = computed(() => rows.value as Leftover[]);
   const needs = computed(() => mealNeeds(days.value, sets.byId, recipes.byId, settings.people));
@@ -38,7 +40,15 @@ export const useLeftoversStore = defineStore('leftovers', () => {
   const byId = (id: string) => batches.value.find((b) => b.id === id);
 
   async function cook(recipeId: string, grams: number) {
-    await put({ id: crypto.randomUUID(), recipeId, cookedAt: today(), createdAt: Date.now(), grams: Math.round(grams), adjust: 0, eaten: [] });
+    await put({
+      id: crypto.randomUUID(),
+      recipeId,
+      cookedAt: today(),
+      createdAt: Date.now(),
+      grams: Math.round(grams),
+      adjust: 0,
+      eaten: [],
+    });
   }
 
   /** «Выбросили»: списать граммы (не больше, чем лежит). */
@@ -76,5 +86,21 @@ export const useLeftoversStore = defineStore('leftovers', () => {
 
   const eatenFor = (need: Need) => eatenOf(batches.value, need);
 
-  return { batches, days, needs, state, available, freeOn, coverageOf, needsOf, cook, discard, weigh, eat, uneat, eatenFor };
+  return {
+    batches,
+    days,
+    loaded,
+    needs,
+    state,
+    available,
+    freeOn,
+    coverageOf,
+    needsOf,
+    cook,
+    discard,
+    weigh,
+    eat,
+    uneat,
+    eatenFor,
+  };
 });

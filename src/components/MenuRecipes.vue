@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { marked } from 'marked';
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue';
 import CookPanel from '@/components/CookPanel.vue';
 import { cookList, openOn, sharedIngredients } from '@/lib/cooking';
 import { addDays, formatDay, range, today } from '@/lib/dates';
@@ -22,7 +22,20 @@ const DEFAULT_DAYS = 4;
 const CHOICE_DAYS = 7; // не зависит от недели, открытой в «Меню»
 const shortDay = (iso: string) => formatDay(iso).replace(/,.*$/, '');
 
-const from = computed(() => addDays(today(), 1));
+// «сегодня» обновляется, если вкладка открыта через полночь
+const day = ref(today());
+const refreshDay = () => (day.value = today());
+let timer: ReturnType<typeof setInterval> | undefined;
+onMounted(() => {
+  timer = setInterval(refreshDay, 60_000);
+  document.addEventListener('visibilitychange', refreshDay);
+});
+onUnmounted(() => {
+  clearInterval(timer);
+  document.removeEventListener('visibilitychange', refreshDay);
+});
+
+const from = computed(() => addDays(day.value, 1));
 const chips = computed(() => range(from.value, CHOICE_DAYS));
 const chosen = ref<string | null>(null);
 const until = computed(() =>
@@ -61,7 +74,11 @@ const shared = computed(() =>
 
 /** Сегодня рецепт тоже нужен и не покрыт: приготовленное сначала уйдёт туда (вкладка считает с завтра). */
 const todayOpen = (recipeId: string) =>
-  openOn(leftovers.needs, leftovers.coverageOf, recipeId, today()).map((m) => MEAL_LABELS[m].toLowerCase());
+  openOn(leftovers.needs, leftovers.coverageOf, recipeId, day.value).map((m) => MEAL_LABELS[m].toLowerCase());
+
+/** Что только что записано в приготовленное: карточка при этом уходит из списка. */
+const lastCooked = ref('');
+const onCooked = (title: string, grams: number) => (lastCooked.value = `Записано: ${title}, ${grams} г.`);
 
 const collapsed = reactive<Record<string, boolean>>({});
 
@@ -120,12 +137,18 @@ const html = (id: string, body: string) => marked.parse(scaleIngredientsSection(
           :recipe="item.recipe"
           :from="from"
           :until="until"
+          @cooked="onCooked(item.recipe.title, $event)"
         />
+        <p v-else class="mt-2 text-[13px] text-warn">
+          Ингредиенты в заметке не найдены — нет пересчёта на порции и кнопки «Приготовлено».
+        </p>
         <div class="markdown" v-html="html(item.recipeId, item.recipe.body)" />
       </div>
     </article>
 
-    <p v-if="!todo.length" class="py-4 text-center text-muted">
+    <p v-if="lastCooked" class="text-[13px] text-accent" aria-live="polite">{{ lastCooked }}</p>
+
+    <p v-if="!todo.length && leftovers.loaded" class="py-4 text-center text-muted">
       {{ cooked.length ? 'К этим дням всё приготовлено.' : 'В меню на эти дни нет рецептов.' }}
       <RouterLink :to="{ name: 'recipes', query: { tab: 'all' } }" class="text-accent">Все рецепты</RouterLink>
     </p>

@@ -13,13 +13,11 @@
 ## Global Constraints
 - UI text in Russian, using existing classes `card`, `chip`, `chip-on`, `btn-primary`, `btn-secondary`, `hint`, `link`, `text-warn`, `text-accent`.
 - No new data kinds, no Dexie version, no sync changes.
-- Range starts tomorrow (`addDays(today(), 1)`); today is not included. Default end: tomorrow + 3 (4 days), clamped to the last day of the open period; not persisted.
+- Range starts tomorrow (`addDays(today(), 1)`); today is not included. Day chips: 7 days from tomorrow, from all menu days (not the open week in «Меню»); default end: tomorrow + 3 (4 days); not persisted.
 - «В меню» is the default tab; `/recipes?tab=all` is «Все рецепты».
 - Rounding of scaled amounts follows `scaleQuantity` rules (г/мл whole, кг/л 0.01, others 0.5).
 
 ## Review Focus
-- Open period starts in the future (e.g. «неделя с завтра»): the day chips start at max(tomorrow, period start), and the default is counted from the first chip.
-- Open period ends today or earlier: no chips, show «В меню на эти дни нет рецептов» with a link to «Все рецепты».
 - The same recipe appears in two meals on the same day: one card, «нужно к» lists both meals.
 - Recipe with a partially covered need: it stays in the list, and the counters show only the missing part.
 - A recipe without «Вес готового блюда» chosen in the menu: shown with the «Рецептов» multiplier, never in «Уже приготовлено».
@@ -103,7 +101,7 @@
 
 - [ ] **Step 1: RecipesView tabs.** Two chips at the top: «В меню» (`route.query.tab !== 'all'`) and «Все рецепты». Switch with `router.replace({ query: tab === 'all' ? { tab: 'all' } : {} })`. The existing list moves under «Все рецепты» unchanged.
 - [ ] **Step 2: MenuRecipes.**
-  - Chips: `plan.dates` filtered `>= addDays(today(), 1)`, labelled `formatDay(d).replace(/,.*$/, '')`. `until` defaults to `chips[min(3, len-1)]`.
+  - Chips: `range(tomorrow, 7)` over `leftovers.days`, labelled `formatDay(d).replace(/,.*$/, '')`. `until` defaults to `chips[min(3, len-1)]`.
   - Data: `cookList({ days: plan.days, ... from: tomorrow, until })`.
   - `factors = ref<Record<string, number>>({})` fed by each CookPanel's `v-model:factor`. For non-weighable items, also fed by CookPanel (its «Рецептов» path).
   - Summary card «Общее для нескольких рецептов», hidden when empty: `name — total: title amount, …`.
