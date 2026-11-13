@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A default «В меню» tab on the Recipes page. It lists the recipes needed from today to a chosen day and not yet cooked, expanded and scaled, with a summary of shared ingredients.
+**Goal:** A default «В меню» tab on the Recipes page. It lists the recipes needed from tomorrow to a chosen day and not yet cooked, expanded and scaled, with a summary of shared ingredients.
 
-**Architecture:** Pure functions in a new `src/lib/cooking.ts` (list of recipes to cook, shared-ingredient summary) with vitest tests. `CookPanel` gets an `until` prop. A new `MenuRecipes.vue` component holds the tab. `RecipesView.vue` switches tabs via `?tab=all`.
+**Architecture:** Pure functions in a new `src/lib/cooking.ts` (list of recipes to cook, shared-ingredient summary) with vitest tests. `CookPanel` gets `from`/`until` props. A new `MenuRecipes.vue` component holds the tab. `RecipesView.vue` switches tabs via `?tab=all`.
 
 **Tech Stack:** Vue 3 `<script setup>`, Pinia, Tailwind 4 utility classes, vitest.
 
@@ -13,13 +13,13 @@
 ## Global Constraints
 - UI text in Russian, using existing classes `card`, `chip`, `chip-on`, `btn-primary`, `btn-secondary`, `hint`, `link`, `text-warn`, `text-accent`.
 - No new data kinds, no Dexie version, no sync changes.
-- Default range: today + 3 days (4 days), clamped to the last day of the open period; not persisted.
+- Range starts tomorrow (`addDays(today(), 1)`); today is not included. Default end: tomorrow + 3 (4 days), clamped to the last day of the open period; not persisted.
 - «В меню» is the default tab; `/recipes?tab=all` is «Все рецепты».
 - Rounding of scaled amounts follows `scaleQuantity` rules (г/мл whole, кг/л 0.01, others 0.5).
 
 ## Review Focus
-- Open period starts in the future (e.g. «неделя с завтра»): the day chips start at max(today, period start), and the default is counted from the first chip.
-- Open period entirely in the past: no chips, show «В меню на эти дни нет рецептов» with a link to «Все рецепты».
+- Open period starts in the future (e.g. «неделя с завтра»): the day chips start at max(tomorrow, period start), and the default is counted from the first chip.
+- Open period ends today or earlier: no chips, show «В меню на эти дни нет рецептов» with a link to «Все рецепты».
 - The same recipe appears in two meals on the same day: one card, «нужно к» lists both meals.
 - Recipe with a partially covered need: it stays in the list, and the counters show only the missing part.
 - A recipe without «Вес готового блюда» chosen in the menu: shown with the «Рецептов» multiplier, never in «Уже приготовлено».
@@ -86,7 +86,7 @@
 - Modify: `src/components/CookPanel.vue:15,36-38`
 
 **Interfaces:**
-- Produces: prop `until?: string` (ISO date). With it, `inMenu` = needs of this recipe with `today() <= date <= until`. Without it, behaviour stays as today (`plan.dates`, from today).
+- Produces: props `from?: string`, `until?: string` (ISO dates). With them, `inMenu` = needs of this recipe with `from <= date <= until`. Without them, behaviour stays as today (`plan.dates`, from today).
 
 - [ ] **Step 1:** Add the prop and the filter. `RecipeView` keeps passing nothing.
 - [ ] **Step 2:** `npx vue-tsc -b` → no errors.
@@ -99,15 +99,15 @@
 - Modify: `src/views/RecipesView.vue`, `README.md` (a bullet on «В меню»)
 
 **Interfaces:**
-- Consumes: `cookList`, `sharedIngredients`, `CookItem` (Tasks 1–2); `CookPanel` with `until` and `v-model:factor` (Task 3); `scaleIngredientsSection`; `usePlanStore().days/dates`, `useLeftoversStore().needs/coverageOf`, `useSetsStore().byId`, `useRecipesStore().byId`; `formatDay`, `addDays`, `today`.
+- Consumes: `cookList`, `sharedIngredients`, `CookItem` (Tasks 1–2); `CookPanel` with `from`/`until` and `v-model:factor` (Task 3); `scaleIngredientsSection`; `usePlanStore().days/dates`, `useLeftoversStore().needs/coverageOf`, `useSetsStore().byId`, `useRecipesStore().byId`; `formatDay`, `addDays`, `today`.
 
 - [ ] **Step 1: RecipesView tabs.** Two chips at the top: «В меню» (`route.query.tab !== 'all'`) and «Все рецепты». Switch with `router.replace({ query: tab === 'all' ? { tab: 'all' } : {} })`. The existing list moves under «Все рецепты» unchanged.
 - [ ] **Step 2: MenuRecipes.**
-  - Chips: `plan.dates` filtered `>= today()`, labelled `formatDay(d).replace(/,.*$/, '')`. `until` defaults to `chips[min(3, len-1)]`.
-  - Data: `cookList({ days: plan.days, ... from: today(), until })`.
+  - Chips: `plan.dates` filtered `>= addDays(today(), 1)`, labelled `formatDay(d).replace(/,.*$/, '')`. `until` defaults to `chips[min(3, len-1)]`.
+  - Data: `cookList({ days: plan.days, ... from: tomorrow, until })`.
   - `factors = ref<Record<string, number>>({})` fed by each CookPanel's `v-model:factor`. For non-weighable items, also fed by CookPanel (its «Рецептов» path).
   - Summary card «Общее для нескольких рецептов», hidden when empty: `name — total: title amount, …`.
-  - Per item, a `card`. The header button toggles collapse (`collapsed` Set) and shows the title (`RouterLink` to the recipe) and «нужно к: пт обед, сб ужин» using `MEAL_LABELS` lowercased. The body has `CookPanel :recipe :until v-model:factor` and `marked.parse(scaleIngredientsSection(body, factor))` in `.markdown`.
+  - Per item, a `card`. The header button toggles collapse (`collapsed` Set) and shows the title (`RouterLink` to the recipe) and «нужно к: пт обед, сб ужин» using `MEAL_LABELS` lowercased. The body has `CookPanel :recipe :from :until v-model:factor` and `marked.parse(scaleIngredientsSection(body, factor))` in `.markdown`.
   - Footer hint: «Уже приготовлено к этим дням:» with links for `cooked`.
   - Empty states: `todo` empty and `cooked` non-empty → «К этим дням всё приготовлено». Both empty, or no chips → «В меню на эти дни нет рецептов». Both cases get a link to `?tab=all`.
 - [ ] **Step 3:** `npx vue-tsc -b`, `npm test`, `npx vite build` → clean.
