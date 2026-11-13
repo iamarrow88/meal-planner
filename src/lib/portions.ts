@@ -40,6 +40,10 @@ function round(value: number, unit: string): number {
 
 const format = (n: number) => String(Number(n.toFixed(2))).replace('.', ',');
 
+/** Количество с единицей, округлённое как при пересчёте рецепта: 150,4 г → «150 г». */
+export const formatQuantity = (value: number, unit: string) =>
+  [format(round(value, normalizeUnit(unit))), unit].filter(Boolean).join(' ');
+
 // число (в том числе «1/2», «0,5», «1½») и, через возможный диапазон «-3», единица после него
 const NUMBER = /(?<![\d.,/])(\d+(?:[.,]\d+)?(?:\s*\/\s*\d+)?|\d*\s*[½¼¾⅓⅔])(?![\d.,/]|\s*%)(?=((?:\s*[-–]\s*[\d.,]+)?\s*([а-яёa-z]+\.?(?:\s*л\.)?))?)/gi;
 

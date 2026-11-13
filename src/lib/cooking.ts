@@ -1,6 +1,7 @@
 import type { Coverage, Need } from './leftovers';
-import { selectedOptions } from './shopping';
-import { MEALS, type DayPlan, type Meal, type MealSet } from './types';
+import { formatQuantity } from './portions';
+import { displayName, isPantryStaple, productBase, selectedOptions } from './shopping';
+import { MEALS, type DayPlan, type Meal, type MealSet, type Recipe } from './types';
 
 /** Рецепт, который нужно приготовить к выбранным дням. */
 export interface CookItem {
@@ -64,4 +65,43 @@ export function cookList(args: {
     todo: sorted.filter((i) => i.open).map(({ open: _, ...item }) => item),
     cooked: sorted.filter((i) => !i.open).map((i) => i.recipeId),
   };
+}
+
+/** Продукт, который нужен нескольким рецептам: «Яйца — 5 шт: Кекс 2 шт, Салат 3 шт». */
+export interface SharedLine {
+  name: string;
+  /** Сумма по единицам: «150 г + 1 шт»; пусто, если количеств нет («по вкусу»). */
+  total: string;
+  parts: { recipeId: string; title: string; amount: string }[];
+}
+
+type Amounts = Map<string, number>; // единица → количество
+
+const join = (amounts: Amounts) => [...amounts].map(([unit, n]) => formatQuantity(n, unit)).join(' + ');
+const addTo = (amounts: Amounts, unit: string, n: number) => amounts.set(unit, (amounts.get(unit) ?? 0) + n);
+
+/** Продукты (кроме соли, воды и специй), которые встречаются в двух и больше рецептах, с количествами на нужные порции (factor). */
+export function sharedIngredients(items: { recipe: Recipe; factor: number }[]): SharedLine[] {
+  const byProduct = new Map<string, { name: string; total: Amounts; parts: Map<string, { title: string; amounts: Amounts }> }>();
+  for (const { recipe, factor } of items) {
+    for (const ing of recipe.ingredients) {
+      const key = productBase(ing.name);
+      if (!key || isPantryStaple(ing.name)) continue; // соль, вода, специи — объединять нечего
+      let line = byProduct.get(key);
+      if (!line) byProduct.set(key, (line = { name: displayName(ing.name), total: new Map(), parts: new Map() }));
+      let part = line.parts.get(recipe.id);
+      if (!part) line.parts.set(recipe.id, (part = { title: recipe.title, amounts: new Map() }));
+      if (ing.amount == null) continue;
+      addTo(part.amounts, ing.unit, ing.amount * factor);
+      addTo(line.total, ing.unit, ing.amount * factor);
+    }
+  }
+  return [...byProduct.values()]
+    .filter((l) => l.parts.size >= 2)
+    .map((l) => ({
+      name: l.name,
+      total: join(l.total),
+      parts: [...l.parts].map(([recipeId, p]) => ({ recipeId, title: p.title, amount: join(p.amounts) })),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
 }

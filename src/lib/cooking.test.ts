@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { cookList } from './cooking';
+import { cookList, sharedIngredients } from './cooking';
 import { mealNeeds, type Coverage, type Need } from './leftovers';
-import type { DayPlan, MealSet, Recipe, SetOption } from './types';
+import type { DayPlan, Ingredient, MealSet, Recipe, SetOption } from './types';
 
 const soup: Recipe = {
   id: 'soup',
@@ -91,5 +91,58 @@ describe('cookList', () => {
         ],
       },
     ]);
+  });
+});
+
+const r = (id: string, title: string, ingredients: Ingredient[]): Recipe => ({ ...soup, id, title, ingredients });
+const ing = (name: string, amount: number | null, unit = ''): Ingredient => ({ name, amount, unit });
+
+describe('sharedIngredients', () => {
+  it('яйца из двух рецептов: сумма и разбивка', () => {
+    const lines = sharedIngredients([
+      { recipe: r('cake', 'Кекс', [ing('Яйца', 2, 'шт'), ing('Мука', 200, 'г')]), factor: 1 },
+      { recipe: r('salad', 'Салат', [ing('Яйца', 3, 'шт')]), factor: 1 },
+    ]);
+    expect(lines).toEqual([
+      {
+        name: 'Яйца',
+        total: '5 шт',
+        parts: [
+          { recipeId: 'cake', title: 'Кекс', amount: '2 шт' },
+          { recipeId: 'salad', title: 'Салат', amount: '3 шт' },
+        ],
+      },
+    ]);
+  });
+
+  it('множитель и разные единицы', () => {
+    const [line] = sharedIngredients([
+      { recipe: r('a', 'А', [ing('Лук', 100, 'г')]), factor: 1.5 },
+      { recipe: r('b', 'Б', [ing('Лук', 1, 'шт')]), factor: 1 },
+    ]);
+    expect(line.total).toBe('150 г + 1 шт');
+    expect(line.parts.map((p) => p.amount)).toEqual(['150 г', '1 шт']);
+  });
+
+  it('продукт из одного рецепта не показывается', () => {
+    expect(sharedIngredients([{ recipe: r('a', 'А', [ing('Лук', 100, 'г'), ing('Лук', 50, 'г')]), factor: 1 }])).toEqual([]);
+  });
+
+  it('по вкусу', () => {
+    const [line] = sharedIngredients([
+      { recipe: r('a', 'А', [ing('Сахар', null)]), factor: 1 },
+      { recipe: r('b', 'Б', [ing('Сахар', null)]), factor: 2 },
+    ]);
+    expect(line).toMatchObject({ name: 'Сахар', total: '' });
+    expect(line.parts.map((p) => p.amount)).toEqual(['', '']);
+  });
+
+  it('соль, вода и специи не показываются', () => {
+    expect(
+      sharedIngredients([
+        { recipe: r('a', 'А', [ing('Соль', 1, 'ч.л.'), ing('Вода', 200, 'мл')]), factor: 1 },
+        { recipe: r('b', 'Б', [ing('Соль', null), ing('Вода', 100, 'мл')]), factor: 1 },
+      ]),
+    ).toEqual([]);
   });
 });
