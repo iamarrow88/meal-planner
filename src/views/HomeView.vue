@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import AddToMenu from '@/components/AddToMenu.vue';
+import LeftoversCard from '@/components/LeftoversCard.vue';
 import ProductPicker from '@/components/ProductPicker.vue';
 import SavedMenus from '@/components/SavedMenus.vue';
 import StarRating from '@/components/StarRating.vue';
@@ -85,6 +86,8 @@ const liked = computed(() =>
       </p>
       <button v-if="tips.length > 1" class="link self-start text-[14px]" @click="index++">Другое предложение ›</button>
     </div>
+
+    <LeftoversCard />
 
     <div v-if="pantry.catalog.length" class="flex flex-col gap-2">
       <h2 class="text-lg font-semibold">🧺 Продукты дома</h2>
