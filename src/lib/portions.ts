@@ -1,3 +1,4 @@
+import { portionGrams } from './leftovers';
 import { normalizeUnit } from './parse';
 import type { MealSet, Recipe } from './types';
 
@@ -16,9 +17,7 @@ export function portionSources(recipe: Recipe, sets: MealSet[]): PortionSource[]
     for (const group of set.groups) {
       for (const option of group.options) {
         if (option.recipe !== recipe.id) continue;
-        let grams: number | undefined;
-        if (option.portion) grams = option.portion.unit === 'г' ? option.portion.amount : undefined;
-        else if (recipe.yieldGrams) grams = recipe.yieldGrams * (option.fraction ?? 1);
+        const grams = portionGrams(option, recipe);
         if (!grams) continue;
         const key = `${set.id}|${grams}`;
         if (seen.has(key)) continue;

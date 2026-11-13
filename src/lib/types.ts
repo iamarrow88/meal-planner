@@ -65,6 +65,37 @@ export interface MealSet {
 export interface MealChoice {
   setId: string;
   picks: Record<string, string[]>; // id группы → id выбранных вариантов
+  /** На сколько человек этот приём пищи; нет — число по умолчанию из настроек. */
+  people?: number;
+  /**
+   * «Готовлю заново»: '<id группы>:<id варианта>' → дата, когда отмечено.
+   * Такой вариант не берёт из партий, приготовленных раньше этой даты.
+   */
+  fresh?: Record<string, string>;
+}
+
+/** Сколько съедено из партии в конкретный приём пищи. */
+export interface EatenRecord {
+  date: string;
+  meal: Meal;
+  grams: number;
+}
+
+/** Партия приготовленного блюда: остаток = grams − adjust − съеденное. */
+export interface Leftover {
+  id: string;
+  recipeId: string;
+  cookedAt: string; // YYYY-MM-DD
+  grams: number;
+  /** Списано («выбросили») — плюс; взвесили и оказалось больше — минус. */
+  adjust: number;
+  eaten: EatenRecord[];
+}
+
+/** Общие настройки, одна запись с id «main». */
+export interface Settings {
+  id: string;
+  people: number;
 }
 
 export interface Favorite {
