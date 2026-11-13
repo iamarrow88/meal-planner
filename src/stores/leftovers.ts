@@ -76,5 +76,5 @@ export const useLeftoversStore = defineStore('leftovers', () => {
 
   const eatenFor = (need: Need) => eatenOf(batches.value, need);
 
-  return { batches, needs, state, available, freeOn, coverageOf, needsOf, cook, discard, weigh, eat, uneat, eatenFor };
+  return { batches, days, needs, state, available, freeOn, coverageOf, needsOf, cook, discard, weigh, eat, uneat, eatenFor };
 });

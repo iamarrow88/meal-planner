@@ -26,6 +26,7 @@ const backLabel = computed(() => {
   const to = previous.value;
   if (!to) return '';
   if (to.name === 'set') return sets.byId.get(String(to.params.id))?.name ?? 'Сет';
+  if (to.name === 'recipes') return to.query.tab === 'all' ? 'Все рецепты' : 'Рецепты в меню';
   const labels: Record<string, string> = { shopping: 'Список покупок', menu: 'Меню', recipes: 'Все рецепты', home: 'Главная', sets: 'Все сеты' };
   return labels[String(to.name)] ?? 'Назад';
 });
